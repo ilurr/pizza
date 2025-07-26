@@ -289,8 +289,7 @@ onMounted(() => {
                     <Column header="Type" style="min-width: 8rem">
                         <template #body="{ data }">
                             <div class="flex align-items-center gap-2">
-                                <i :class="getTransactionIcon(data.type)"
-                                    :class="`text-${getTransactionColor(data.type) === 'success' ? 'green' : getTransactionColor(data.type) === 'danger' ? 'red' : getTransactionColor(data.type) === 'warn' ? 'orange' : 'blue'}-500`"></i>
+                                <i :class="[getTransactionIcon(data.type), `text-${getTransactionColor(data.type) === 'success' ? 'green' : getTransactionColor(data.type) === 'danger' ? 'red' : getTransactionColor(data.type) === 'warn' ? 'orange' : 'blue'}-500`]"></i>
                                 <span class="font-medium capitalize">{{ data.type }}</span>
                             </div>
                         </template>
