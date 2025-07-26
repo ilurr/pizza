@@ -1,0 +1,182 @@
+[
+    {
+        "id": "pizza001",
+        "name": "Margherita Classic",
+        "description": "Pizza klasik dengan saus tomat segar, keju mozzarella, dan daun basil",
+        "category": "Classic",
+        "price": 45000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/m/a/margherita-500x500px.png",
+        "ingredients": ["Saus Tomat", "Keju Mozzarella", "Daun Basil", "Olive Oil"],
+        "sizes": [
+            { "size": "Small", "price": 35000 },
+            { "size": "Medium", "price": 45000 },
+            { "size": "Large", "price": 55000 }
+        ],
+        "available": false,
+        "popular": true,
+        "rating": 4.5,
+        "cookingTime": 15
+    },
+    {
+        "id": "pizza002",
+        "name": "Pepperoni Supreme",
+        "description": "Pizza dengan pepperoni premium, keju mozzarella, dan saus tomat pedas",
+        "category": "Meat",
+        "price": 65000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/b/e/beef_pepperoni_feast-500x500px.png",
+        "ingredients": ["Pepperoni", "Keju Mozzarella", "Saus Tomat Pedas", "Oregano"],
+        "sizes": [
+            { "size": "Small", "price": 55000 },
+            { "size": "Medium", "price": 65000 },
+            { "size": "Large", "price": 75000 }
+        ],
+        "available": true,
+        "popular": true,
+        "rating": 4.8,
+        "cookingTime": 18
+    },
+    {
+        "id": "pizza003",
+        "name": "Veggie Delight",
+        "description": "Pizza sehat dengan paprika, jamur, bawang bombay, dan zaitun",
+        "category": "Vegetarian",
+        "price": 55000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/v/e/veggie_mania.png",
+        "ingredients": ["Paprika", "Jamur", "Bawang Bombay", "Zaitun", "Keju Mozzarella"],
+        "sizes": [
+            { "size": "Small", "price": 45000 },
+            { "size": "Medium", "price": 55000 },
+            { "size": "Large", "price": 65000 }
+        ],
+        "available": true,
+        "popular": false,
+        "rating": 4.2,
+        "cookingTime": 16
+    },
+    {
+        "id": "pizza004",
+        "name": "Meat Lovers",
+        "description": "Pizza untuk pecinta daging dengan pepperoni, sosis, dan bacon",
+        "category": "Meat",
+        "price": 85000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/m/e/meat_n_meat.png",
+        "ingredients": ["Pepperoni", "Sosis", "Bacon", "Keju Mozzarella"],
+        "sizes": [
+            { "size": "Small", "price": 75000 },
+            { "size": "Medium", "price": 85000 },
+            { "size": "Large", "price": 95000 }
+        ],
+        "available": true,
+        "popular": true,
+        "rating": 4.7,
+        "cookingTime": 20
+    },
+    {
+        "id": "pizza005",
+        "name": "Hawaiian Paradise",
+        "description": "Pizza manis dengan nanas, dan keju mozzarella",
+        "category": "Sweet",
+        "price": 60000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/u/l/ultimatecheesemeltnew.png",
+        "ingredients": ["Nanas", "Keju Mozzarella", "Saus Tomat"],
+        "sizes": [
+            { "size": "Small", "price": 50000 },
+            { "size": "Medium", "price": 60000 },
+            { "size": "Large", "price": 70000 }
+        ],
+        "available": true,
+        "popular": false,
+        "rating": 3.9,
+        "cookingTime": 17
+    },
+    {
+        "id": "pizza006",
+        "name": "Spicy Chicken",
+        "description": "Pizza pedas dengan ayam bumbu, cabai, dan keju cheddar",
+        "category": "Spicy",
+        "price": 70000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/c/h/chicken_lovers-500x500px.png",
+        "ingredients": ["Ayam Bumbu", "Cabai", "Keju Cheddar", "Bawang Putih"],
+        "sizes": [
+            { "size": "Small", "price": 60000 },
+            { "size": "Medium", "price": 70000 },
+            { "size": "Large", "price": 80000 }
+        ],
+        "available": true,
+        "popular": true,
+        "rating": 4.6,
+        "cookingTime": 19
+    },
+    {
+        "id": "pizza007",
+        "name": "Seafood Special",
+        "description": "Pizza seafood dengan udang, cumi, dan keju mozzarella",
+        "category": "Seafood",
+        "price": 90000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/e/x/extravaganza-500x500px.png",
+        "ingredients": ["Udang", "Cumi", "Keju Mozzarella", "Saus Putih"],
+        "sizes": [
+            { "size": "Small", "price": 80000 },
+            { "size": "Medium", "price": 90000 },
+            { "size": "Large", "price": 100000 }
+        ],
+        "available": true,
+        "popular": false,
+        "rating": 4.3,
+        "cookingTime": 22
+    },
+    {
+        "id": "pizza008",
+        "name": "BBQ Chicken",
+        "description": "Pizza dengan ayam BBQ, bawang bombay, dan saus BBQ",
+        "category": "BBQ",
+        "price": 75000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/a/l/alfredo_chicken_truffle_-_update.png",
+        "ingredients": ["Ayam BBQ", "Bawang Bombay", "Saus BBQ", "Keju Mozzarella"],
+        "sizes": [
+            { "size": "Small", "price": 65000 },
+            { "size": "Medium", "price": 75000 },
+            { "size": "Large", "price": 85000 }
+        ],
+        "available": true,
+        "popular": true,
+        "rating": 4.4,
+        "cookingTime": 18
+    },
+    {
+        "id": "pizza009",
+        "name": "Cheese Burst",
+        "description": "Pizza dengan keju berlimpah di dalam pinggiran dan topping",
+        "category": "Cheese",
+        "price": 80000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/a/m/american_classic_cheeseburger-500x500px.png",
+        "ingredients": ["Keju Mozzarella", "Keju Cheddar", "Keju Parmesan", "Saus Putih"],
+        "sizes": [
+            { "size": "Small", "price": 70000 },
+            { "size": "Medium", "price": 80000 },
+            { "size": "Large", "price": 90000 }
+        ],
+        "available": true,
+        "popular": false,
+        "rating": 4.1,
+        "cookingTime": 16
+    },
+    {
+        "id": "pizza010",
+        "name": "Mushroom Truffle",
+        "description": "Pizza premium dengan jamur truffle, jamur champignon, dan keju",
+        "category": "Premium",
+        "price": 120000,
+        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/a/l/alfredo_chicken_truffle_-_update.png",
+        "ingredients": ["Jamur Truffle", "Jamur Champignon", "Keju Mozzarella", "Saus Putih"],
+        "sizes": [
+            { "size": "Small", "price": 110000 },
+            { "size": "Medium", "price": 120000 },
+            { "size": "Large", "price": 130000 }
+        ],
+        "available": false,
+        "popular": false,
+        "rating": 4.9,
+        "cookingTime": 25
+    }
+]

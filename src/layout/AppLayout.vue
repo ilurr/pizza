@@ -51,13 +51,19 @@ function isOutsideClicked(event) {
     const sidebarEl = document.querySelector('.layout-sidebar');
     const topbarEl = document.querySelector('.layout-menu-button');
 
-    return !(sidebarEl.isSameNode(event.target) || sidebarEl.contains(event.target) || topbarEl.isSameNode(event.target) || topbarEl.contains(event.target));
+    // Check if sidebar was clicked
+    const sidebarClicked = sidebarEl && (sidebarEl.isSameNode(event.target) || sidebarEl.contains(event.target));
+    
+    // Check if menu button was clicked (only if it exists)
+    const topbarClicked = topbarEl && (topbarEl.isSameNode(event.target) || topbarEl.contains(event.target));
+
+    return !(sidebarClicked || topbarClicked);
 }
 </script>
 
 <template>
     <div class="layout-wrapper" :class="containerClass">
-        <app-topbar></app-topbar>
+        <app-topbar :admin=true></app-topbar>
         <app-sidebar></app-sidebar>
         <div class="layout-main-container">
             <div class="layout-main">

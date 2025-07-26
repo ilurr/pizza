@@ -2,4 +2,32 @@
 @use 'primeicons/primeicons.css';
 @use '@/assets/tailwind.css';
 @use '@/assets/layout/layout.scss';
-@use '@/assets/demo/demo.scss';
+
+:root {
+  --font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.p-dialog.dialog-flex-end[role=dialog] {
+
+  .p-dialog-footer {
+    padding: 1rem;
+  }
+
+}
+
+@media screen and (max-width: 575px) {
+  .p-dialog.dialog-flex-end[role=dialog] {
+    width: 100vw !important;
+    border-radius: 12px 12px 0 0 !important;
+    align-self: flex-end;
+
+    // max-height: 85%;
+    .p-dialog-content {
+      padding: 0 1rem;
+    }
+
+    .p-dialog-header {
+      padding: 0.5rem 1rem;
+    }
+  }
+}

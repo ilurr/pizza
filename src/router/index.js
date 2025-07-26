@@ -1,126 +1,138 @@
 import AppLayout from '@/layout/AppLayout.vue';
+import { useUserStore } from '@/stores/userStore';
+import { isAuthenticated } from '@/utils/auth';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
     history: createWebHistory(),
+    scrollBehavior(to, from, savedPosition) {
+        // Always scroll to top when navigating to a new page
+        return { top: 0 };
+    },
     routes: [
         {
             path: '/',
+            name: 'index',
+            component: () => import('@/views/pages/Landing.vue')
+        },
+        {
+            path: '/dashboard',
             component: AppLayout,
+            meta: { requiresAuth: true },
             children: [
                 {
-                    path: '/',
+                    path: '/dashboard',
                     name: 'dashboard',
                     component: () => import('@/views/Dashboard.vue')
                 },
                 {
-                    path: '/uikit/formlayout',
-                    name: 'formlayout',
-                    component: () => import('@/views/uikit/FormLayout.vue')
+                    path: '/dashboard/notifications',
+                    name: 'dashboardNotifications',
+                    component: () => import('@/views/pages/NotificationsNew.vue')
                 },
                 {
-                    path: '/uikit/input',
-                    name: 'input',
-                    component: () => import('@/views/uikit/InputDoc.vue')
-                },
-                {
-                    path: '/uikit/button',
-                    name: 'button',
-                    component: () => import('@/views/uikit/ButtonDoc.vue')
-                },
-                {
-                    path: '/uikit/table',
-                    name: 'table',
-                    component: () => import('@/views/uikit/TableDoc.vue')
-                },
-                {
-                    path: '/uikit/list',
-                    name: 'list',
-                    component: () => import('@/views/uikit/ListDoc.vue')
-                },
-                {
-                    path: '/uikit/tree',
-                    name: 'tree',
-                    component: () => import('@/views/uikit/TreeDoc.vue')
-                },
-                {
-                    path: '/uikit/panel',
-                    name: 'panel',
-                    component: () => import('@/views/uikit/PanelsDoc.vue')
-                },
-
-                {
-                    path: '/uikit/overlay',
-                    name: 'overlay',
-                    component: () => import('@/views/uikit/OverlayDoc.vue')
-                },
-                {
-                    path: '/uikit/media',
-                    name: 'media',
-                    component: () => import('@/views/uikit/MediaDoc.vue')
-                },
-                {
-                    path: '/uikit/message',
-                    name: 'message',
-                    component: () => import('@/views/uikit/MessagesDoc.vue')
-                },
-                {
-                    path: '/uikit/file',
-                    name: 'file',
-                    component: () => import('@/views/uikit/FileDoc.vue')
-                },
-                {
-                    path: '/uikit/menu',
-                    name: 'menu',
-                    component: () => import('@/views/uikit/MenuDoc.vue')
-                },
-                {
-                    path: '/uikit/charts',
-                    name: 'charts',
-                    component: () => import('@/views/uikit/ChartDoc.vue')
-                },
-                {
-                    path: '/uikit/misc',
-                    name: 'misc',
-                    component: () => import('@/views/uikit/MiscDoc.vue')
-                },
-                {
-                    path: '/uikit/timeline',
-                    name: 'timeline',
-                    component: () => import('@/views/uikit/TimelineDoc.vue')
-                },
-                {
-                    path: '/pages/empty',
-                    name: 'empty',
-                    component: () => import('@/views/pages/Empty.vue')
-                },
-                {
-                    path: '/pages/crud',
-                    name: 'crud',
-                    component: () => import('@/views/pages/Crud.vue')
-                },
-                {
-                    path: '/documentation',
-                    name: 'documentation',
-                    component: () => import('@/views/pages/Documentation.vue')
+                    path: '/dashboard/profile',
+                    name: 'dashboardProfile',
+                    component: () => import('@/views/pages/ProfileNew.vue')
                 }
             ]
         },
         {
-            path: '/landing',
-            name: 'landing',
-            component: () => import('@/views/pages/Landing.vue')
+            path: '/driver',
+            component: AppLayout,
+            meta: { requiresAuth: true, roles: ['drivers', 'superadmin'] },
+            children: [
+                {
+                    path: '/driver',
+                    name: 'driverDashboard',
+                    component: () => import('@/views/driver/DriverMain.vue')
+                },
+                {
+                    path: '/driver/orders',
+                    name: 'driverOrders',
+                    component: () => import('@/views/driver/DriverOrders.vue')
+                },
+                {
+                    path: '/driver/stock',
+                    name: 'driverStock',
+                    component: () => import('@/views/driver/DriverStock.vue')
+                },
+                {
+                    path: '/driver/earnings',
+                    name: 'driverEarnings',
+                    component: () => import('@/views/driver/DriverEarnings.vue')
+                },
+                {
+                    path: '/driver/exchange',
+                    name: 'driverExchange',
+                    component: () => import('@/views/driver/DriverExchange.vue')
+                },
+                {
+                    path: '/driver/profile',
+                    name: 'driverProfile',
+                    component: () => import('@/views/pages/ProfileNew.vue')
+                }
+            ]
         },
         {
-            path: '/pages/notfound',
+            path: '/order/my',
+            name: 'order',
+            // meta: { requiresAuth: true }, // Allow unauthenticated access to see layout
+            component: () => import('@/views/pages/MyOrders.vue')
+        },
+        {
+            path: '/menu',
+            name: 'menu',
+            component: () => import('@/views/pages/Menu.vue')
+        },
+        {
+            path: '/order/now',
+            name: 'orderNow',
+            meta: { requiresAuth: true },
+            component: () => import('@/views/pages/OrderNow.vue')
+        },
+        {
+            path: '/payment-summary',
+            name: 'paymentSummary',
+            component: () => import('@/views/pages/PaymentSummary.vue')
+        },
+        {
+            path: '/notifications',
+            name: 'notifications',
+            meta: { requiresAuth: true },
+            component: () => import('@/views/pages/NotificationsNew.vue')
+        },
+        {
+            path: '/profile',
+            name: 'profile',
+            meta: { requiresAuth: true },
+            component: () => import('@/views/pages/Profile.vue')
+        },
+        {
+            path: '/profile-new',
+            name: 'profileNew',
+            meta: { requiresAuth: true },
+            component: () => import('@/views/pages/ProfileNew.vue')
+        },
+        {
+            path: '/notfound',
             name: 'notfound',
             component: () => import('@/views/pages/NotFound.vue')
         },
-
         {
             path: '/auth/login',
             name: 'login',
             component: () => import('@/views/pages/auth/Login.vue')
+        },
+        {
+            path: '/auth/signup',
+            name: 'signup',
+            component: () => import('@/views/pages/auth/SignUp.vue')
+        },
+        {
+            path: '/auth/forgot-password',
+            name: 'forgotPassword',
+            component: () => import('@/views/pages/auth/ForgotPassword.vue')
         },
         {
             path: '/auth/access',
@@ -133,6 +145,19 @@ const router = createRouter({
             component: () => import('@/views/pages/auth/Error.vue')
         }
     ]
+});
+
+// **Navigation Guard**
+router.beforeEach((to, from, next) => {
+    const userStore = useUserStore();
+
+    if (to.meta.requiresAuth && !isAuthenticated()) {
+        next('/auth/login'); // Redirect unauthenticated users
+    } else if (to.meta.roles && !to.meta.roles.includes(userStore.role)) {
+        next('/auth/access'); // Redirect unauthorized users to home
+    } else {
+        next();
+    }
 });
 
 export default router;

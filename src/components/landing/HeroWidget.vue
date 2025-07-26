@@ -1,16 +1,38 @@
+<script setup>
+import { ProductService } from '@/service/ProductService';
+import { onMounted, ref } from 'vue';
+
+const products = ref([]);
+const images = ref([]);
+
+onMounted(() => {
+    ProductService.getProductsMini().then((data) => (products.value = data));
+});
+
+</script>
+
 <template>
-    <div
-        id="hero"
-        class="flex flex-col pt-6 px-6 lg:px-20 overflow-hidden"
-        style="background: linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)), radial-gradient(77.36% 256.97% at 77.36% 57.52%, rgb(238, 239, 175) 0%, rgb(195, 227, 250) 100%); clip-path: ellipse(150% 87% at 93% 13%)"
-    >
-        <div class="mx-6 md:mx-20 mt-0 md:mt-6">
-            <h1 class="text-6xl font-bold text-gray-900 leading-tight"><span class="font-light block">Eu sem integer</span>eget magna fermentum</h1>
-            <p class="font-normal text-2xl leading-normal md:mt-4 text-gray-700">Sed blandit libero volutpat sed cras. Fames ac turpis egestas integer. Placerat in egestas erat...</p>
-            <Button label="Get Started" as="router-link" to="/" rounded class="!text-xl mt-8 !px-4"></Button>
-        </div>
-        <div class="flex justify-center md:justify-end">
-            <img src="/demo/images/landing/screen-1.png" alt="Hero Image" class="w-9/12 md:w-auto" />
-        </div>
-    </div>
+    <Carousel :value="products" :numVisible="1" :numScroll="1" :showNavigators=false circular :autoplayInterval="8000">
+        <template #item="slotProps">
+            <ImageWithSkeleton :src="slotProps.data.image2" wrapperClass="relative mx-auto aspect-[74/25] md:rounded-xl"
+                height="100%" />
+            <!-- <div class="relative mx-auto aspect-video">
+                <img :src="slotProps.data.image2" :alt="slotProps.data.name" class="w-full h-full object-cover" />
+            </div> -->
+        </template>
+    </Carousel>
 </template>
+
+<style scoped>
+:deep(.p-carousel-indicator-button) {
+    height: .3rem;
+    width: 2rem;
+    border-radius: 4px;
+}
+
+/* :deep(.p-carousel-indicator-list) {
+    padding: 2rem 0;
+    margin-top: -4rem;
+    z-index: 2;
+} */
+</style>

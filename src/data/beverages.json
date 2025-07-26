@@ -1,0 +1,141 @@
+[
+  {
+    "id": "drink001",
+    "name": "Coca Cola",
+    "description": "Minuman soda segar",
+    "category": "Soft Drinks",
+    "price": 8000,
+    "image": "/images/coca-cola.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 8000},
+      {"size": "Large", "price": 12000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink002",
+    "name": "Pepsi",
+    "description": "Minuman soda cola",
+    "category": "Soft Drinks",
+    "price": 8000,
+    "image": "/images/pepsi.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 8000},
+      {"size": "Large", "price": 12000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink003",
+    "name": "Sprite",
+    "description": "Minuman soda lemon-lime",
+    "category": "Soft Drinks",
+    "price": 8000,
+    "image": "/images/sprite.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 8000},
+      {"size": "Large", "price": 12000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink004",
+    "name": "Orange Juice",
+    "description": "Jus jeruk segar",
+    "category": "Juices",
+    "price": 15000,
+    "image": "/images/orange-juice.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 15000},
+      {"size": "Large", "price": 20000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink005",
+    "name": "Apple Juice",
+    "description": "Jus apel segar",
+    "category": "Juices",
+    "price": 15000,
+    "image": "/images/apple-juice.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 15000},
+      {"size": "Large", "price": 20000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink006",
+    "name": "Iced Tea",
+    "description": "Teh dingin dengan lemon",
+    "category": "Tea",
+    "price": 10000,
+    "image": "/images/iced-tea.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 10000},
+      {"size": "Large", "price": 15000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink007",
+    "name": "Hot Coffee",
+    "description": "Kopi panas premium",
+    "category": "Coffee",
+    "price": 18000,
+    "image": "/images/hot-coffee.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 18000},
+      {"size": "Large", "price": 25000}
+    ],
+    "available": true,
+    "type": "hot"
+  },
+  {
+    "id": "drink008",
+    "name": "Iced Coffee",
+    "description": "Kopi dingin dengan es",
+    "category": "Coffee",
+    "price": 20000,
+    "image": "/images/iced-coffee.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 20000},
+      {"size": "Large", "price": 27000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink009",
+    "name": "Mineral Water",
+    "description": "Air mineral botol",
+    "category": "Water",
+    "price": 5000,
+    "image": "/images/mineral-water.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 5000}
+    ],
+    "available": true,
+    "type": "cold"
+  },
+  {
+    "id": "drink010",
+    "name": "Lemonade",
+    "description": "Minuman lemon segar",
+    "category": "Juices",
+    "price": 12000,
+    "image": "/images/lemonade.jpg",
+    "sizes": [
+      {"size": "Regular", "price": 12000},
+      {"size": "Large", "price": 18000}
+    ],
+    "available": true,
+    "type": "cold"
+  }
+]

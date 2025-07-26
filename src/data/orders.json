@@ -1,0 +1,234 @@
+[
+    {
+        "id": "order001",
+        "orderNumber": "PZ-2024-001",
+        "customerId": "user001",
+        "customerName": "Budi Santoso",
+        "customerPhone": "081234567890",
+        "customerEmail": "budi.santoso@email.com",
+        "orderDate": "2024-07-10T10:30:00Z",
+        "status": "delivered",
+        "items": [
+            {
+                "id": "pizza001",
+                "name": "Margherita Classic",
+                "size": "Medium",
+                "quantity": 2,
+                "price": 45000,
+                "total": 90000
+            },
+            {
+                "id": "drink001",
+                "name": "Coca Cola",
+                "size": "Regular",
+                "quantity": 2,
+                "price": 8000,
+                "total": 16000
+            }
+        ],
+        "subtotal": 106000,
+        "deliveryFee": 0,
+        "discount": 0,
+        "total": 106000,
+        "paymentMethod": "QRIS",
+        "paymentStatus": "paid",
+        "deliveryAddress": {
+            "street": "Jl. Raya Gubeng No. 123",
+            "district": "Gubeng",
+            "city": "Surabaya",
+            "postalCode": "60281"
+        },
+        "deliveryTime": "2024-07-10T11:15:00Z",
+        "estimatedDelivery": "2024-07-10T11:00:00Z",
+        "notes": "Jangan terlalu pedas"
+    },
+    {
+        "id": "order002",
+        "orderNumber": "PZ-2024-002",
+        "customerId": "user002",
+        "customerName": "Siti Aminah",
+        "customerPhone": "081234567891",
+        "customerEmail": "siti.aminah@email.com",
+        "orderDate": "2024-07-10T14:15:00Z",
+        "status": "waiting",
+        "items": [
+            {
+                "id": "pizza002",
+                "name": "Pepperoni Supreme",
+                "size": "Large",
+                "quantity": 1,
+                "price": 75000,
+                "total": 75000
+            },
+            {
+                "id": "pizza003",
+                "name": "Veggie Delight",
+                "size": "Medium",
+                "quantity": 1,
+                "price": 55000,
+                "total": 55000
+            },
+            {
+                "id": "drink007",
+                "name": "Hot Coffee",
+                "size": "Regular",
+                "quantity": 2,
+                "price": 18000,
+                "total": 36000
+            }
+        ],
+        "subtotal": 166000,
+        "deliveryFee": 0,
+        "discount": 10000,
+        "promoCode": "WELCOME20",
+        "promoTitle": "Welcome Discount",
+        "total": 156000,
+        "paymentMethod": "Cash",
+        "paymentStatus": "pending",
+        "deliveryAddress": {
+            "street": "Jl. Genteng Kali No. 45",
+            "district": "Genteng",
+            "city": "Surabaya",
+            "postalCode": "60275"
+        },
+        "estimatedDelivery": "2024-07-10T15:30:00Z",
+        "notes": "Lantai 2, apartemen"
+    },
+    {
+        "id": "order003",
+        "orderNumber": "PZ-2024-003",
+        "customerId": "user003",
+        "customerName": "Ahmad Wijaya",
+        "customerPhone": "081234567892",
+        "customerEmail": "ahmad.wijaya@email.com",
+        "orderDate": "2024-07-10T16:45:00Z",
+        "status": "on_delivery",
+        "items": [
+            {
+                "id": "pizza004",
+                "name": "Meat Lovers",
+                "size": "Large",
+                "quantity": 1,
+                "price": 95000,
+                "total": 95000
+            },
+            {
+                "id": "drink002",
+                "name": "Pepsi",
+                "size": "Large",
+                "quantity": 1,
+                "price": 12000,
+                "total": 12000
+            }
+        ],
+        "subtotal": 107000,
+        "deliveryFee": 0,
+        "discount": 0,
+        "total": 107000,
+        "paymentMethod": "QRIS",
+        "paymentStatus": "paid",
+        "deliveryAddress": {
+            "street": "Jl. Manyar Kertoadi No. 67",
+            "district": "Gubeng",
+            "city": "Surabaya",
+            "postalCode": "60285"
+        },
+        "estimatedDelivery": "2024-07-10T17:30:00Z",
+        "notes": "Rumah cat biru"
+    },
+    {
+        "id": "order004",
+        "orderNumber": "PZ-2024-004",
+        "customerId": "user004",
+        "customerName": "Dewi Lestari",
+        "customerPhone": "081234567893",
+        "customerEmail": "dewi.lestari@email.com",
+        "orderDate": "2024-07-09T19:20:00Z",
+        "status": "cancelled",
+        "items": [
+            {
+                "id": "pizza005",
+                "name": "Hawaiian Paradise",
+                "size": "Small",
+                "quantity": 2,
+                "price": 50000,
+                "total": 100000
+            },
+            {
+                "id": "drink004",
+                "name": "Orange Juice",
+                "size": "Regular",
+                "quantity": 2,
+                "price": 15000,
+                "total": 30000
+            }
+        ],
+        "subtotal": 130000,
+        "deliveryFee": 0,
+        "discount": 0,
+        "total": 130000,
+        "paymentMethod": "Cash",
+        "paymentStatus": "refunded",
+        "deliveryAddress": {
+            "street": "Jl. Kertajaya No. 89",
+            "district": "Gubeng",
+            "city": "Surabaya",
+            "postalCode": "60286"
+        },
+        "estimatedDelivery": "2024-07-09T20:15:00Z",
+        "notes": "Dibatalkan karena hujan deras",
+        "cancelReason": "Weather conditions"
+    },
+    {
+        "id": "order005",
+        "orderNumber": "PZ-2024-005",
+        "customerId": "user005",
+        "customerName": "Rizky Pratama",
+        "customerPhone": "081234567894",
+        "customerEmail": "rizky.pratama@email.com",
+        "orderDate": "2024-07-11T12:00:00Z",
+        "status": "pending",
+        "items": [
+            {
+                "id": "pizza006",
+                "name": "Spicy Chicken",
+                "size": "Medium",
+                "quantity": 1,
+                "price": 70000,
+                "total": 70000
+            },
+            {
+                "id": "pizza008",
+                "name": "BBQ Chicken",
+                "size": "Medium",
+                "quantity": 1,
+                "price": 75000,
+                "total": 75000
+            },
+            {
+                "id": "drink008",
+                "name": "Iced Coffee",
+                "size": "Large",
+                "quantity": 2,
+                "price": 27000,
+                "total": 54000
+            }
+        ],
+        "subtotal": 199000,
+        "deliveryFee": 0,
+        "discount": 15000,
+        "promoCode": "FLAT15K",
+        "promoTitle": "Flat Discount",
+        "total": 184000,
+        "paymentMethod": "QRIS",
+        "paymentStatus": "pending",
+        "deliveryAddress": {
+            "street": "Jl. Raya Darmo No. 234",
+            "district": "Darmo",
+            "city": "Surabaya",
+            "postalCode": "60241"
+        },
+        "estimatedDelivery": "2024-07-11T13:15:00Z",
+        "notes": "Minta extra sambal"
+    }
+]

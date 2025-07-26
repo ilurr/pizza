@@ -1,13 +1,21 @@
 <script setup>
-import BestSellingWidget from '@/components/dashboard/BestSellingWidget.vue';
-import NotificationsWidget from '@/components/dashboard/NotificationsWidget.vue';
-import RecentSalesWidget from '@/components/dashboard/RecentSalesWidget.vue';
-import RevenueStreamWidget from '@/components/dashboard/RevenueStreamWidget.vue';
-import StatsWidget from '@/components/dashboard/StatsWidget.vue';
+import { useUserStore } from '@/stores/userStore';
+
+const userStore = useUserStore();
 </script>
 
 <template>
-    <div class="grid grid-cols-12 gap-8">
+    <div className="card">
+        <div class="font-semibold text-xl mb-4" v-if="userStore.user">
+            <p>
+                Hello, <strong>{{ userStore.user.username }}!</strong>
+            </p>
+            <p>
+                Your role is: <strong>{{ userStore.role }}</strong>
+            </p>
+        </div>
+    </div>
+    <!-- <div class="grid grid-cols-12 gap-8">
         <StatsWidget />
 
         <div class="col-span-12 xl:col-span-6">
@@ -18,5 +26,5 @@ import StatsWidget from '@/components/dashboard/StatsWidget.vue';
             <RevenueStreamWidget />
             <NotificationsWidget />
         </div>
-    </div>
+    </div> -->
 </template>

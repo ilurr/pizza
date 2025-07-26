@@ -1,4 +1,20 @@
+import pizzasData from '@/data/pizzas.json';
+import beveragesData from '@/data/beverages.json';
+import ordersData from '@/data/orders.json';
+
 export const ProductService = {
+    getPizzasData() {
+        return pizzasData;
+    },
+
+    getBeveragesData() {
+        return beveragesData;
+    },
+
+    getOrdersData() {
+        return ordersData;
+    },
+
     getProductsData() {
         return [
             {
@@ -7,6 +23,7 @@ export const ProductService = {
                 name: 'Bamboo Watch',
                 description: 'Product Description',
                 image: 'bamboo-watch.jpg',
+                image2: 'https://voyee.id/assets/banner/banner_drive_thru.jpg',
                 price: 65,
                 category: 'Accessories',
                 quantity: 24,
@@ -19,6 +36,7 @@ export const ProductService = {
                 name: 'Black Watch',
                 description: 'Product Description',
                 image: 'black-watch.jpg',
+                image2: 'https://voyee.id/assets/banner/banner_delivery.jpg',
                 price: 72,
                 category: 'Accessories',
                 quantity: 61,
@@ -1199,7 +1217,7 @@ export const ProductService = {
     },
 
     getProductsMini() {
-        return Promise.resolve(this.getProductsData().slice(0, 5));
+        return Promise.resolve(this.getProductsData().slice(0, 2));
     },
 
     getProductsSmall() {
@@ -1216,5 +1234,77 @@ export const ProductService = {
 
     getProductsWithOrders() {
         return Promise.resolve(this.getProductsWithOrdersData());
+    },
+
+    // Pizza-specific methods
+    getPizzas() {
+        return Promise.resolve(this.getPizzasData());
+    },
+
+    getPizzaById(id) {
+        const pizzas = this.getPizzasData();
+        return Promise.resolve(pizzas.find(pizza => pizza.id === id));
+    },
+
+    getPizzasByCategory(category) {
+        const pizzas = this.getPizzasData();
+        return Promise.resolve(pizzas.filter(pizza => pizza.category === category));
+    },
+
+    getPopularPizzas() {
+        const pizzas = this.getPizzasData();
+        return Promise.resolve(pizzas.filter(pizza => pizza.popular));
+    },
+
+    getBeverages() {
+        return Promise.resolve(this.getBeveragesData());
+    },
+
+    getBeverageById(id) {
+        const beverages = this.getBeveragesData();
+        return Promise.resolve(beverages.find(beverage => beverage.id === id));
+    },
+
+    getBeveragesByCategory(category) {
+        const beverages = this.getBeveragesData();
+        return Promise.resolve(beverages.filter(beverage => beverage.category === category));
+    },
+
+    getOrders() {
+        return Promise.resolve(this.getOrdersData());
+    },
+
+    getOrderById(id) {
+        const orders = this.getOrdersData();
+        return Promise.resolve(orders.find(order => order.id === id));
+    },
+
+    getOrdersByCustomer(customerId) {
+        const orders = this.getOrdersData();
+        return Promise.resolve(orders.filter(order => order.customerId === customerId));
+    },
+
+    getOrdersByStatus(status) {
+        const orders = this.getOrdersData();
+        return Promise.resolve(orders.filter(order => order.status === status));
+    },
+
+    // Menu methods (combined pizzas and beverages)
+    getMenu() {
+        const pizzas = this.getPizzasData();
+        const beverages = this.getBeveragesData();
+        return Promise.resolve({
+            pizzas: pizzas,
+            beverages: beverages
+        });
+    },
+
+    getAvailableMenu() {
+        const pizzas = this.getPizzasData().filter(pizza => pizza.available);
+        const beverages = this.getBeveragesData().filter(beverage => beverage.available);
+        return Promise.resolve({
+            pizzas: pizzas,
+            beverages: beverages
+        });
     }
 };
