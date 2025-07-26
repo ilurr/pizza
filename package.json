@@ -1,6 +1,6 @@
 {
-    "name": "sakai-vue",
-    "version": "4.3.0",
+    "name": "sakai-vue-panggil-papa-pizza",
+    "version": "0.0.1",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
