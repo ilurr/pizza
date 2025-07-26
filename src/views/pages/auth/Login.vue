@@ -95,7 +95,7 @@ const handleLogin = async () => {
         <div class="min-w-[425px] hidden md:block"></div>
         <div class="max-w-lg flex flex-col items-center justify-center mt-16 mb-8 px-4 sm:px-0 z-[2]">
             <div
-                class="w-full bg-surface-0 dark:bg-surface-900 py-6 px-6 sm:px-10 sm:py-10 rounded-xl shadow-lg md:shadow-2xl">
+                class="w-full bg-white dark:bg-neutral-900 py-6 px-6 sm:px-10 sm:py-10 rounded-xl shadow-lg md:shadow-2xl">
                 <div class="flex justify-center flex-col items-center mb-8">
                     <div class="flex justify-center items-center w-24 mb-6 -mt-20 md:-mt-24">
                         <ImageWithSkeleton :src="logo" wrapperClass="relative mx-auto aspect-square md:rounded-xl"
@@ -113,14 +113,14 @@ const handleLogin = async () => {
                     <InputText id="identifier" type="email" placeholder="Your email" class="w-full mb-8"
                         v-model="identifier" :class="{ 'p-invalid': fieldErrors.identifier }" />
                     <small v-if="fieldErrors.identifier" class="p-error block -mt-6 mb-4">{{ fieldErrors.identifier
-                    }}</small>
+                        }}</small>
 
                     <label for="password"
                         class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password</label>
                     <Password id="password" v-model="password" placeholder="Your password" :toggleMask="true"
                         class="mb-8" fluid :feedback="false" :invalid="!!fieldErrors.password"></Password>
                     <small v-if="fieldErrors.password" class="p-error block -mt-6 mb-4">{{ fieldErrors.password
-                    }}</small>
+                        }}</small>
 
                     <div class="flex items-center justify-between mt-2 mb-8 gap-8">
                         <!-- <div class="flex items-center">

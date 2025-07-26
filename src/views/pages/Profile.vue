@@ -65,7 +65,7 @@ onMounted(async () => {
 </script>
 
 <template>
-	<div class="bg-surface-0 dark:bg-surface-900">
+	<div class="bg-white dark:bg-neutral-900">
 		<div class="landing-wrapper overflow-hidden">
 			<app-topbar variant="page-header" page-title="Profile" @back="goBack"></app-topbar>
 			<FloatingMenu />

@@ -36,7 +36,7 @@ const handleClearAll = () => {
 </script>
 
 <template>
-    <div class="bg-surface-0 dark:bg-surface-900">
+    <div class="bg-white dark:bg-neutral-900">
         <div class="landing-wrapper overflow-hidden">
             <!-- Topbar for customer-facing pages -->
             <app-topbar v-if="!isDashboard" variant="page-header" page-title="Notifications"

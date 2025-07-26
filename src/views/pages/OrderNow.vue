@@ -198,7 +198,7 @@ onMounted(() => {
 </script>
 
 <template>
-	<div class="bg-surface-0 dark:bg-surface-900">
+	<div class="bg-white dark:bg-neutral-900">
 		<div class="landing-wrapper overflow-hidden">
 			<app-topbar variant="page-header" page-title="Order Now" @back="goBack"></app-topbar>
 			<div class="relative lg:mx-80 mx-auto pt-16 md:pt-16 mb-32">

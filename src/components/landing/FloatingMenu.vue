@@ -22,7 +22,7 @@ const isActive = (path) => {
 		class="flex justify-between items-stretch fixed w-full bottom-0 md:bottom-4 md:rounded-md shadow-[0_-1px_12px_0_rgba(0,0,0,0.1)] md:-translate-x-2/4 md:left-2/4 z-10 md:px-4 bg-white dark:bg-neutral-700 max-w-3xl">
 		<router-link class="basis-1/5 grow-0 flex justify-center align-center h-full" to="/">
 			<button type="button" :class="[
-				'button outlined flex flex-col justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
+				'button outlined flex flex-col align-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
 				isActive('/').value && 'active'
 			]">
 				<i class="pi pi-home !text-lg"></i>

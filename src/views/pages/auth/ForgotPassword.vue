@@ -88,7 +88,7 @@ const goToLogin = () => {
         <div class="min-w-[425px] hidden md:block"></div>
         <div class="max-w-lg flex flex-col items-center justify-center mt-16 mb-8 px-4 sm:px-0 z-[2]">
             <div
-                class="w-full bg-surface-0 dark:bg-surface-900 py-6 px-6 sm:px-10 sm:py-10 rounded-xl shadow-lg md:shadow-2xl">
+                class="w-full bg-white dark:bg-neutral-900 py-6 px-6 sm:px-10 sm:py-10 rounded-xl shadow-lg md:shadow-2xl">
 
                 <!-- Header Section -->
                 <div class="flex justify-center flex-col items-center mb-8">

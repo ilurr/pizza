@@ -21,21 +21,15 @@ const goBack = () => {
 </script>
 
 <template>
-    <div class="bg-surface-0 dark:bg-surface-900">
+    <div class="bg-white dark:bg-neutral-900">
         <div class="landing-wrapper overflow-hidden">
             <!-- Topbar for customer-facing pages -->
-            <app-topbar 
-                v-if="!isDashboard"
-                variant="page-header" 
-                page-title="Profile" 
-                @back="goBack" />
+            <app-topbar v-if="!isDashboard" variant="page-header" page-title="Profile" @back="goBack" />
 
             <div :class="['relative mx-auto mb-32', isDashboard ? 'pt-8' : 'lg:mx-80 pt-16 md:pt-16']">
                 <div class="relative md:py-4">
                     <!-- Shared Profile Content -->
-                    <ProfileContent 
-                        :variant="isDashboard ? 'dashboard' : 'customer'"
-                        :show-stats="isDashboard" />
+                    <ProfileContent :variant="isDashboard ? 'dashboard' : 'customer'" :show-stats="isDashboard" />
                 </div>
             </div>
         </div>

@@ -261,7 +261,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<div class="bg-surface-0 dark:bg-surface-900">
+	<div class="bg-white dark:bg-neutral-900">
 		<div class="landing-wrapper overflow-hidden">
 			<app-topbar variant="page-header" page-title="Notifications" :show-notification-actions="true"
 				:notification-stats="notificationStats" @back="goBack" @mark-all-read="handleMarkAllRead"

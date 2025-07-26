@@ -35,7 +35,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="bg-surface-0 dark:bg-surface-900">
+    <div class="bg-white dark:bg-neutral-900">
         <div class="landing-wrapper overflow-hidden">
             <app-topbar></app-topbar>
             <FloatingMenu />
