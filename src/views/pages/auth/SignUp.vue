@@ -133,32 +133,33 @@ const handleRegister = async () => {
 
 				<form @submit.prevent="handleRegister">
 					<label for="email" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email *</label>
-					<InputText id="email" type="email" placeholder="Your email" class="w-full mb-8" v-model="email"
+					<InputText id="email" type="email" placeholder="Your email" class="w-full h-[37px] mb-8" v-model="email"
 						:class="{ 'p-invalid': fieldErrors.email }" />
 					<small v-if="fieldErrors.email" class="p-error block -mt-6 mb-4">{{ fieldErrors.email }}</small>
 
 					<label for="fullName" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Fullname
 						*</label>
-					<InputText id="fullName" type="text" placeholder="Your full name" class="w-full mb-8" v-model="fullName"
-						:class="{ 'p-invalid': fieldErrors.fullName }" />
+					<InputText id="fullName" type="text" placeholder="Your full name" class="w-full h-[37px] mb-8"
+						v-model="fullName" :class="{ 'p-invalid': fieldErrors.fullName }" />
 					<small v-if="fieldErrors.fullName" class="p-error block -mt-6 mb-4">{{ fieldErrors.fullName }}</small>
 
 					<label for="whatsapp" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">No. Whatsapp
 						*</label>
-					<InputText id="whatsapp" type="tel" placeholder="Your WhatsApp number" class="w-full mb-8" v-model="whatsapp"
-						:class="{ 'p-invalid': fieldErrors.whatsapp }" />
+					<InputText id="whatsapp" type="tel" placeholder="Your WhatsApp number" class="w-full h-[37px] mb-8"
+						v-model="whatsapp" :class="{ 'p-invalid': fieldErrors.whatsapp }" />
 					<small v-if="fieldErrors.whatsapp" class="p-error block -mt-6 mb-4">{{ fieldErrors.whatsapp }}</small>
 
 					<label for="password" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password
 						*</label>
-					<Password id="password" v-model="password" placeholder="Your password" :toggleMask="true" class="w-full mb-8"
-						fluid :feedback="false" :invalid="!!fieldErrors.password"></Password>
+					<Password id="password" v-model="password" placeholder="Your password" :toggleMask="true"
+						class="w-full h-[37px] mb-8" fluid :feedback="false" :invalid="!!fieldErrors.password"></Password>
 					<small v-if="fieldErrors.password" class="p-error block -mt-6 mb-4">{{ fieldErrors.password }}</small>
 
 					<label for="confirmPassword"
 						class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Confirm Password *</label>
 					<Password id="confirmPassword" v-model="confirmPassword" placeholder="Confirm your password"
-						:toggleMask="true" class="w-full mb-8" fluid :feedback="false" :invalid="!!fieldErrors.confirmPassword">
+						:toggleMask="true" class="w-full h-[37px] mb-8" fluid :feedback="false"
+						:invalid="!!fieldErrors.confirmPassword">
 					</Password>
 					<small v-if="fieldErrors.confirmPassword" class="p-error block -mt-6 mb-4">{{ fieldErrors.confirmPassword
 					}}</small>
@@ -228,7 +229,7 @@ const handleRegister = async () => {
 .terms ol,
 .terms ul {
 	list-style: disc;
-	padding: 0 0 0 1rem;
+	padding: 0 0 0 2rem;
 }
 
 .terms ol {

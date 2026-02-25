@@ -20,47 +20,47 @@ const isActive = (path) => {
 <template>
 	<div
 		class="flex justify-between items-stretch fixed w-full bottom-0 md:bottom-4 md:rounded-md shadow-[0_-1px_12px_0_rgba(0,0,0,0.1)] md:-translate-x-2/4 md:left-2/4 z-10 md:px-4 bg-white dark:bg-neutral-700 max-w-3xl">
-		<router-link class="basis-1/5 grow-0 flex justify-center align-center h-full" to="/">
+		<router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/">
 			<button type="button" :class="[
-				'button outlined flex flex-col align-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
+				'button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
 				isActive('/').value && 'active'
 			]">
 				<i class="pi pi-home !text-lg"></i>
 				<span>Home</span>
 			</button>
 		</router-link>
-		<router-link class="basis-1/5 grow-0 flex justify-center align-center h-full" to="/menu">
+		<router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/menu">
 			<button type="button" :class="[
-				'button outlined flex flex-col justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
+				'button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
 				isActive('/menu').value && 'active'
 			]">
 				<i class="pi pi-receipt !text-lg"></i>
 				<span>Menu</span>
 			</button>
 		</router-link>
-		<router-link class="basis-1/5 grow-0 flex justify-center align-center h-full" to="/order/now">
+		<router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/order/now">
 			<button type="button"
-				class="order-now-button flex flex-col justify-center gap-1 md:w-5/6 h-[70px] font-bold text-base bg-red-600 text-white rounded-full">
+				class="order-now-button flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-base bg-red-600 text-white rounded-full">
 				<i class="pi pi-plus !text-lg"></i>
 				<span>Order Now</span>
 			</button>
 		</router-link>
-		<router-link class="basis-1/5 grow-0 flex justify-center align-center h-full" to="/order/my">
+		<router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/order/my">
 			<button type="button" :class="[
-				'button outlined flex flex-col justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base relative',
+				'button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base relative',
 				isActive('/order/my').value && 'active'
 			]">
 				<div class="relative">
 					<i class="pi pi-shopping-cart !text-lg"></i>
 					<Badge v-if="hasActiveOrders" severity="danger"
-						class="absolute -top-1 right-2 min-w-[10px] h-[10px] text-[8px]" />
+						class="absolute -top-1 -right-2 min-w-[10px] h-[10px] text-[8px]" />
 				</div>
 				<span>My Order</span>
 			</button>
 		</router-link>
-		<router-link class="basis-1/5 grow-0 flex justify-center align-center h-full" to="/profile">
+		<router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/profile">
 			<button type="button" :class="[
-				'button outlined flex flex-col justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
+				'button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
 				isActive('/profile').value && 'active'
 			]">
 				<i class="pi pi-user !text-lg"></i>

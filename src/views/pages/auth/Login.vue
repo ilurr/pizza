@@ -110,17 +110,19 @@ const handleLogin = async () => {
                 <form @submit.prevent="handleLogin">
                     <label for="identifier"
                         class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
-                    <InputText id="identifier" type="email" placeholder="Your email" class="w-full mb-8"
-                        v-model="identifier" :class="{ 'p-invalid': fieldErrors.identifier }" />
+                    <InputText id="identifier" type="email" placeholder="Your email"
+                        class="w-full h-[37px] px-[0.75rem] mb-8" v-model="identifier"
+                        :class="{ 'p-invalid': fieldErrors.identifier }" />
                     <small v-if="fieldErrors.identifier" class="p-error block -mt-6 mb-4">{{ fieldErrors.identifier
-                        }}</small>
+                    }}</small>
 
                     <label for="password"
                         class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password</label>
                     <Password id="password" v-model="password" placeholder="Your password" :toggleMask="true"
-                        class="mb-8" fluid :feedback="false" :invalid="!!fieldErrors.password"></Password>
+                        class="w-full h-[37px] mb-8" fluid :feedback="false" :invalid="!!fieldErrors.password">
+                    </Password>
                     <small v-if="fieldErrors.password" class="p-error block -mt-6 mb-4">{{ fieldErrors.password
-                        }}</small>
+                    }}</small>
 
                     <div class="flex items-center justify-between mt-2 mb-8 gap-8">
                         <!-- <div class="flex items-center">

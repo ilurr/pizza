@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import imageSrc from '@/assets/images/Orders.svg';
 import FloatingMenu from '@/components/landing/FloatingMenu.vue';
 import OrderList from '@/components/OrderList.vue';
 import { useActiveOrders } from '@/composables/useActiveOrders';
@@ -25,14 +26,14 @@ const historyEmptyState = {
 	title: 'No Order History',
 	message: "You haven't completed any orders yet.",
 	iconType: 'image' as const,
-	imageSrc: '/src/assets/images/Orders.svg'
+	imageSrc: imageSrc
 };
 
 const onProgressEmptyState = {
 	title: 'No Active Orders',
 	message: "You don't have any orders in progress right now.",
 	iconType: 'image' as const,
-	imageSrc: '/src/assets/images/Orders.svg'
+	imageSrc: imageSrc
 };
 
 // Empty states for unauthenticated users (login required)
@@ -40,7 +41,7 @@ const loginRequiredHistoryState = {
 	title: 'No Order History',
 	message: "Sign in to check out all your previous pizza orders!",
 	iconType: 'image' as const,
-	imageSrc: '/src/assets/images/Orders.svg',
+	imageSrc: imageSrc,
 	showLoginButton: true
 };
 
@@ -48,7 +49,7 @@ const loginRequiredProgressState = {
 	title: 'No Active Orders',
 	message: "Sign in to see your current orders and track when they'll arrive!",
 	iconType: 'image' as const,
-	imageSrc: '/src/assets/images/Orders.svg',
+	imageSrc: imageSrc,
 	showLoginButton: true
 };
 
