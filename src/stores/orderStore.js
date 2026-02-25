@@ -1,5 +1,26 @@
 import { defineStore } from 'pinia';
 
+// Simple debounce helper for localStorage writes
+const debounce = (fn, wait = 300) => {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), wait);
+    };
+};
+
+const debouncedSetItem = typeof localStorage !== 'undefined'
+    ? debounce((key, value) => localStorage.setItem(key, value), 300)
+    : () => {};
+
+const debouncedStorage = typeof localStorage !== 'undefined'
+    ? {
+          getItem: (key) => localStorage.getItem(key),
+          setItem: (key, value) => debouncedSetItem(key, value),
+          removeItem: (key) => localStorage.removeItem(key)
+      }
+    : undefined;
+
 export const useOrderStore = defineStore('order', {
     state: () => ({
         // Order progress tracking
@@ -189,18 +210,20 @@ export const useOrderStore = defineStore('order', {
         }
     },
 
-    // Persist state to localStorage
-    persist: {
-        key: 'pizza-order-state',
-        storage: localStorage,
-        paths: [
-            'currentStep',
-            'completedSteps', 
-            'userLocation',
-            'availableDrivers',
-            'selectedDriver',
-            'orderStartedAt',
-            'lastActivityAt'
-        ]
-    }
+    // Persist state to localStorage (debounced writes)
+    persist: debouncedStorage
+        ? {
+              key: 'pizza-order-state',
+              storage: debouncedStorage,
+              paths: [
+                  'currentStep',
+                  'completedSteps',
+                  'userLocation',
+                  'availableDrivers',
+                  'selectedDriver',
+                  'orderStartedAt',
+                  'lastActivityAt'
+              ]
+          }
+        : undefined
 });

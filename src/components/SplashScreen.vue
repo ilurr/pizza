@@ -3,7 +3,7 @@
         <div class="text-center text-white animate-slideUp">
             <!-- Logo -->
             <div class="mb-8">
-                <img src="/src/assets/images/LogoSquareRedSVG.svg" alt="Papa Pizza"
+                <img :src="brand.logos.square" :alt="brand.name"
                     class="w-64 h-64 mx-auto animate-bounce">
             </div>
 
@@ -35,6 +35,13 @@ import packageInfo from '../../package.json';
 
 const isVisible = ref(true);
 const version = ref(packageInfo.version);
+
+const brand = {
+    name: 'Panggil Papa Pizza',
+    logos: {
+        square: new URL('@/assets/images/LogoSquareRedSVG.svg', import.meta.url).href
+    }
+};
 
 defineProps({
     duration: {

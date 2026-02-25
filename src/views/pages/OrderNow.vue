@@ -1,16 +1,29 @@
 <script setup lang="ts">
-import CartModal from '@/components/CartModal.vue';
+import { defineAsyncComponent, computed, onMounted, ref } from 'vue';
 import FloatingCart from '@/components/FloatingCart.vue';
-import LocationPickerModal from '@/components/LocationPickerModal.vue';
 import OrderProgressStepper from '@/components/OrderProgressStepper.vue';
 import PizzaCard from '@/components/PizzaCard.vue';
-import ProductDetailModal from '@/components/ProductDetailModal.vue';
 import AppTopbar from '@/layout/AppTopbar.vue';
+import api from '@/services/api/index.js';
 import { ProductService } from '@/service/ProductService.js';
 import { useCartStore } from '@/stores/cartStore.js';
 import { useOrderStore } from '@/stores/orderStore.js';
-import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+const CartModal = defineAsyncComponent(() => import('@/components/CartModal.vue'));
+const LocationPickerModal = defineAsyncComponent(() => import('@/components/LocationPickerModal.vue'));
+const ProductDetailModal = defineAsyncComponent(() => import('@/components/ProductDetailModal.vue'));
+
+function distanceKm(lat1, lng1, lat2, lng2) {
+	const R = 6371;
+	const dLat = ((lat2 - lat1) * Math.PI) / 180;
+	const dLng = ((lng2 - lng1) * Math.PI) / 180;
+	const a =
+		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+		Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return R * c;
+}
 
 const router = useRouter();
 const cartStore = useCartStore();
@@ -43,69 +56,28 @@ const handleLocationSelected = (location) => {
 const searchNearbyDrivers = async (location) => {
 	isLoading.value = true;
 	try {
-		// Simulate API call to find nearby drivers
-		await new Promise(resolve => setTimeout(resolve, 2000));
-
-		// Mock driver data - simulate different scenarios
-		const allDrivers = [
-			{
-				id: 1,
-				name: 'Cak Gilang',
-				rating: 4.8,
-				distance: 0.5,
-				estimatedTime: '5-10 min',
-				phone: '081234567888',
-				avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg',
-				isAvailable: true,
-				unavailableReason: null
-			},
-			{
-				id: 2,
-				name: 'Pak Agus',
-				rating: 4.8,
-				distance: 0.3,
-				estimatedTime: '3-8 min',
-				phone: '081234567899',
-				avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg',
-				isAvailable: true,
-				unavailableReason: null
-			},
-			{
-				id: 3,
-				name: 'Cak Bram',
-				rating: 4.9,
-				distance: 0.8,
-				estimatedTime: '8-12 min',
-				phone: '081234567777',
-				avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_27_00_1718623620_0961d218aa38beb0aa77.jpg',
-				isAvailable: true,
-				unavailableReason: null
-			}
-		];
-
-		// Simulate different scenarios based on location or random chance
-		const scenarios = {
-			noDrivers: Math.random() < 0.2, // 20% chance no drivers found
-			allUnavailable: Math.random() < 0.3 // 30% chance all drivers unavailable
-		};
-
-		let availableDrivers = [];
-
-		if (scenarios.noDrivers) {
-			// No drivers found scenario
-			availableDrivers = [];
-		} else if (scenarios.allUnavailable) {
-			// All drivers temporarily unavailable
-			availableDrivers = allDrivers.map(driver => ({
-				...driver,
-				isAvailable: false,
-				unavailableReason: driver.unavailableReason || 'Temporarily closed'
-			}));
-		} else {
-			// Normal scenario with some available drivers
-			availableDrivers = allDrivers;
-		}
-
+		const res = await api.drivers.getAvailableDrivers(
+			{ lat: location.lat, lng: location.lng },
+			15
+		);
+		const list = res && res.success && res.data && res.data.drivers ? res.data.drivers : [];
+		const availableDrivers = list.map((d) => {
+			const dist = d.currentLocation
+				? distanceKm(location.lat, location.lng, d.currentLocation.lat, d.currentLocation.lng)
+				: 0.5;
+			const estMin = Math.max(3, Math.round(dist * 8));
+			return {
+				id: d.id,
+				name: d.name,
+				rating: d.rating,
+				distance: Math.round(dist * 10) / 10,
+				estimatedTime: `${estMin}-${estMin + 5} min`,
+				phone: d.phone,
+				avatar: d.avatar,
+				isAvailable: d.isAvailable !== false,
+				unavailableReason: d.isAvailable === false ? 'Temporarily closed' : null
+			};
+		});
 		orderStore.setAvailableDrivers(availableDrivers);
 	} catch (error) {
 		console.error('Error searching drivers:', error);

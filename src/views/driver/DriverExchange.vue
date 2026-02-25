@@ -1,50 +1,12 @@
 <script setup>
+import api from '@/services/api/index.js';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
 
-// Available drivers for exchange
-const nearbyDrivers = ref([
-    {
-        id: 'driver_002',
-        name: 'Cak Gilang',
-        avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg',
-        distance: 1.2,
-        rating: 4.8,
-        isOnline: true,
-        stock: [
-            { id: 'cheese', name: 'Mozzarella Cheese', available: 5, unit: 'kg' },
-            { id: 'pepperoni', name: 'Pepperoni', available: 3, unit: 'kg' },
-            { id: 'mushrooms', name: 'Mushrooms', available: 2, unit: 'kg' }
-        ]
-    },
-    {
-        id: 'driver_003',
-        name: 'Cak Bram',
-        avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_27_00_1718623620_0961d218aa38beb0aa77.jpg',
-        distance: 2.8,
-        rating: 4.9,
-        isOnline: true,
-        stock: [
-            { id: 'flour', name: 'Pizza Flour', available: 8, unit: 'kg' },
-            { id: 'tomato_sauce', name: 'Tomato Sauce', available: 6, unit: 'liters' },
-            { id: 'olive_oil', name: 'Olive Oil', available: 3, unit: 'liters' }
-        ]
-    },
-    {
-        id: 'driver_004',
-        name: 'Pak Joko',
-        avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg',
-        distance: 4.1,
-        rating: 4.7,
-        isOnline: false,
-        stock: [
-            { id: 'gas', name: 'Cooking Gas', available: 2, unit: 'tanks' },
-            { id: 'cheese', name: 'Mozzarella Cheese', available: 4, unit: 'kg' }
-        ]
-    }
-]);
+// Available drivers for exchange (loaded from DriverApiService)
+const nearbyDrivers = ref([]);
 
 // Exchange requests
 const exchangeRequests = ref([
@@ -195,8 +157,32 @@ const formatTime = (dateString) => {
 };
 
 // Lifecycle
+const loadNearbyDrivers = async () => {
+    try {
+        const res = await api.drivers.getNearbyDrivers('driver_001');
+        if (res && res.success && res.data && Array.isArray(res.data.nearbyDrivers)) {
+            nearbyDrivers.value = res.data.nearbyDrivers.map((d) => ({
+                id: d.id,
+                name: d.name,
+                avatar: d.avatar,
+                distance: d.distance,
+                rating: d.rating,
+                isOnline: true,
+                stock: (d.availableStock || []).map((s) => ({
+                    id: s.id,
+                    name: s.id,
+                    available: s.quantity,
+                    unit: s.unit
+                }))
+            }));
+        }
+    } catch (error) {
+        console.error('Failed to load nearby drivers:', error);
+    }
+};
+
 onMounted(() => {
-    // Simulate loading nearby drivers
+    loadNearbyDrivers();
 });
 </script>
 

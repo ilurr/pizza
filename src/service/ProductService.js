@@ -1,3 +1,4 @@
+import api from '@/services/api/index.js';
 import pizzasData from '@/data/pizzas.json';
 import beveragesData from '@/data/beverages.json';
 import ordersData from '@/data/orders.json';
@@ -1237,8 +1238,9 @@ export const ProductService = {
     },
 
     // Pizza-specific methods
-    getPizzas() {
-        return Promise.resolve(this.getPizzasData());
+    async getPizzas() {
+        const res = await api.products.getPizzas();
+        return res && res.success ? res.data.pizzas : this.getPizzasData();
     },
 
     getPizzaById(id) {
@@ -1256,8 +1258,9 @@ export const ProductService = {
         return Promise.resolve(pizzas.filter(pizza => pizza.popular));
     },
 
-    getBeverages() {
-        return Promise.resolve(this.getBeveragesData());
+    async getBeverages() {
+        const res = await api.products.getBeverages();
+        return res && res.success ? res.data.beverages : this.getBeveragesData();
     },
 
     getBeverageById(id) {
@@ -1270,8 +1273,9 @@ export const ProductService = {
         return Promise.resolve(beverages.filter(beverage => beverage.category === category));
     },
 
-    getOrders() {
-        return Promise.resolve(this.getOrdersData());
+    async getOrders(userId = 'guest_user') {
+        const res = await api.orders.getUserOrders(userId);
+        return res && res.success ? res.data.orders : this.getOrdersData();
     },
 
     getOrderById(id) {
@@ -1290,13 +1294,15 @@ export const ProductService = {
     },
 
     // Menu methods (combined pizzas and beverages)
-    getMenu() {
-        const pizzas = this.getPizzasData();
-        const beverages = this.getBeveragesData();
-        return Promise.resolve({
-            pizzas: pizzas,
-            beverages: beverages
-        });
+    async getMenu() {
+        const res = await api.products.getMenu();
+        if (res && res.success && res.data) {
+            return { pizzas: res.data.pizzas || [], beverages: res.data.beverages || [] };
+        }
+        return {
+            pizzas: this.getPizzasData(),
+            beverages: this.getBeveragesData()
+        };
     },
 
     getAvailableMenu() {

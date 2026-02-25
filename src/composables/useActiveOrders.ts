@@ -1,7 +1,7 @@
 import { ProductService } from '@/service/ProductService.js';
 import { useUserStore } from '@/stores/userStore';
 import { isAuthenticated } from '@/utils/auth';
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 export function useActiveOrders() {
     const userStore = useUserStore();
@@ -34,8 +34,9 @@ export function useActiveOrders() {
                 await userStore.fetchUser();
             }
 
-            // Get all orders and filter for active ones
-            const orders = await ProductService.getOrders();
+            // Get all orders for this user and filter for active ones
+            const userId = userStore.user?.id ?? 'guest_user';
+            const orders = await ProductService.getOrders(userId);
             
             // Filter orders for active statuses
             activeOrders.value = orders.filter(order => 
@@ -51,9 +52,14 @@ export function useActiveOrders() {
     };
 
     const startPolling = (intervalMs: number = 30000) => {
+        // Avoid duplicate intervals
+        if (intervalId) {
+            clearInterval(intervalId);
+        }
+
         // Initial fetch
         fetchActiveOrders();
-        
+
         // Poll every 30 seconds
         intervalId = setInterval(fetchActiveOrders, intervalMs);
     };
@@ -65,16 +71,33 @@ export function useActiveOrders() {
         }
     };
 
+    const handleVisibilityChange = () => {
+        if (typeof document === 'undefined') return;
+
+        if (document.hidden) {
+            stopPolling();
+        } else if (isAuthenticated()) {
+            startPolling();
+        }
+    };
+
     // Auto-start polling when authenticated
     onMounted(() => {
         if (isAuthenticated()) {
             startPolling();
+        }
+
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', handleVisibilityChange);
         }
     });
 
     // Clean up on unmount
     onUnmounted(() => {
         stopPolling();
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
     });
 
     return {

@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import api from '@/services/api/index.js';
+import { computed, onMounted, ref, watch } from 'vue';
 
-// Earnings data
+// Earnings data (initialized with defaults, overridden by API)
 const earnings = ref({
     today: {
         deliveries: 12,
@@ -36,7 +37,7 @@ const selectedPeriod = ref('today');
 const chartData = ref({});
 const chartOptions = ref({});
 
-// Recent transactions
+// Recent transactions (latest period)
 const recentTransactions = ref([
     {
         id: 'TXN001',
@@ -196,9 +197,30 @@ const initChart = () => {
     };
 };
 
+const loadEarnings = async () => {
+    try {
+        const res = await api.drivers.getDriverEarnings('driver_001', selectedPeriod.value);
+        if (res && res.success && res.data) {
+            if (res.data.earnings) {
+                earnings.value[selectedPeriod.value] = res.data.earnings;
+            }
+            if (Array.isArray(res.data.transactions)) {
+                recentTransactions.value = res.data.transactions;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load driver earnings:', error);
+    }
+};
+
 // Lifecycle
 onMounted(() => {
     initChart();
+    loadEarnings();
+});
+
+watch(selectedPeriod, () => {
+    loadEarnings();
 });
 </script>
 

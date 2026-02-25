@@ -29,70 +29,63 @@ const isWithinCoverage = ref(true);
 const showNotificationRequest = ref(false);
 const isSavingNotification = ref(false);
 
+import coverageAreasData from '@/data/coverageAreas.json';
+
 let map: any = null;
 let marker: any = null;
 let coveragePolygon: any = null;
 let L: any = null;
 
-// Coverage areas configuration - easy to expand
-const coverageAreas = [
-    {
-        city: 'Surabaya',
-        bounds: [
-            [-7.3549, 112.6094], // Southwest corner
-            [-7.1554, 112.8375]  // Northeast corner
-        ],
-        // More precise polygon for Surabaya city area
-        polygon: [
-            [-7.1554, 112.6094], // Northwest
-            [-7.1554, 112.8375], // Northeast  
-            [-7.3549, 112.8375], // Southeast
-            [-7.3549, 112.6094], // Southwest
-            [-7.1554, 112.6094]  // Close polygon
-        ]
-    },
-    {
-        city: 'Tangerang Selatan',
-        bounds: [
-            [-6.3676, 106.6924], // Southwest corner
-            [-6.1840, 106.8304]  // Northeast corner
-        ],
-        // Polygon for Tangerang Selatan city area
-        polygon: [
-            [-6.1840, 106.6924], // Northwest
-            [-6.1840, 106.8304], // Northeast  
-            [-6.3676, 106.8304], // Southeast
-            [-6.3676, 106.6924], // Southwest
-            [-6.1840, 106.6924]  // Close polygon
-        ]
-    }
-];
+// Coverage areas from central mock data (src/data/coverageAreas.json)
+const coverageAreas = coverageAreasData as Array<{
+    city: string;
+    bounds: [number, number][];
+    polygon: [number, number][];
+}>;
 
-// Load Leaflet once when component mounts
-onMounted(async () => {
+let leafletLoaded = false;
+
+const ensureLeafletLoaded = async () => {
+    if (leafletLoaded && L) return;
+
     try {
-        // Load Leaflet CSS
-        if (!document.querySelector('link[href*="leaflet.css"]')) {
+        // Load Leaflet CSS once
+        if (!document.querySelector('link[href*=\"leaflet.css\"]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
             document.head.appendChild(link);
         }
 
-        // Load Leaflet JS
+        // Load Leaflet JS and wait until it's ready
         if (!(window as any).L) {
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-            script.onload = () => {
-                L = (window as any).L;
-                console.log('Leaflet loaded successfully');
-            };
-            document.head.appendChild(script);
+            await new Promise<void>((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                script.onload = () => {
+                    L = (window as any).L;
+                    console.log('Leaflet loaded successfully');
+                    resolve();
+                };
+                script.onerror = (err) => {
+                    console.error('Failed to load Leaflet:', err);
+                    reject(err);
+                };
+                document.head.appendChild(script);
+            });
         } else {
             L = (window as any).L;
         }
+
+        leafletLoaded = true;
     } catch (error) {
         console.error('Failed to load Leaflet:', error);
+    }
+};
+
+onMounted(async () => {
+    if (props.visible) {
+        await ensureLeafletLoaded();
     }
 });
 
@@ -125,6 +118,14 @@ const initMap = () => {
         });
 
         console.log('Map initialized successfully');
+
+        // Fix rendering when map is created inside a modal:
+        // recalculate size after dialog animation completes
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+            }
+        }, 400);
 
         // Get user location
         getCurrentLocation();
@@ -383,14 +384,19 @@ const closeModal = () => {
 };
 
 // Watch for modal visibility changes
-watch(() => props.visible, (newVal) => {
-    if (newVal) {
-        // Wait for modal to render, then initialize map
-        nextTick(() => {
-            setTimeout(() => {
-                initMap();
-            }, 300);
-        });
+watch(
+    () => props.visible,
+    async (newVal) => {
+        if (newVal) {
+            // Ensure Leaflet is loaded only when modal is shown
+            await ensureLeafletLoaded();
+
+            // Wait for modal to render, then initialize map
+            nextTick(() => {
+                setTimeout(() => {
+                    initMap();
+                }, 300);
+            });
     } else {
         // Clean up map when modal closes
         if (map) {
@@ -408,7 +414,8 @@ watch(() => props.visible, (newVal) => {
         showNotificationRequest.value = false;
         isWithinCoverage.value = true;
     }
-});
+}
+);
 </script>
 
 <template>

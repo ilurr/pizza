@@ -1,4 +1,9 @@
 import { BaseApiService } from './ApiClient.js';
+import driversData from '@/data/drivers.json';
+import driverStockData from '@/data/driverStock.json';
+import driverEarningsData from '@/data/driverEarnings.json';
+import driverTransactionsData from '@/data/driverTransactions.json';
+import driverNearbyDriversData from '@/data/driverNearbyDrivers.json';
 
 export class DriverApiService extends BaseApiService {
     constructor() {
@@ -8,197 +13,16 @@ export class DriverApiService extends BaseApiService {
     }
 
     initializeMockData() {
-        // Mock driver profiles
-        this.mockDrivers = [
-            {
-                id: 'driver_001',
-                name: 'Pak Agus',
-                email: 'agus@pizza.com',
-                phone: '081234567899',
-                avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg',
-                rating: 4.8,
-                totalDeliveries: 245,
-                status: 'active',
-                isOnline: false,
-                isAvailable: true,
-                currentLocation: { lat: -7.2575, lng: 112.7521 },
-                vehicleInfo: {
-                    type: 'motorcycle',
-                    plate: 'B 1234 AG',
-                    model: 'Honda Beat'
-                },
-                coverageArea: {
-                    center: { lat: -7.2575, lng: 112.7521 },
-                    radius: 8,
-                    polygon: []
-                },
-                createdAt: '2024-01-15T00:00:00Z',
-                updatedAt: new Date().toISOString()
-            }
-        ];
+        // Mock driver profiles from central data (src/data/drivers.json)
+        this.mockDrivers = JSON.parse(JSON.stringify(driversData)).map((d) => ({
+            ...d,
+            updatedAt: new Date().toISOString()
+        }));
 
-        // Mock stock data
-        this.mockStock = [
-            {
-                id: 'flour',
-                name: 'Pizza Flour',
-                category: 'Base',
-                currentStock: 15,
-                maxCapacity: 25,
-                unit: 'kg',
-                criticalLevel: 5,
-                estimatedUsage: 2.5,
-                cost: 15000,
-                lastRestocked: '2024-01-20T10:00:00Z'
-            },
-            {
-                id: 'cheese',
-                name: 'Mozzarella Cheese',
-                category: 'Toppings',
-                currentStock: 8,
-                maxCapacity: 15,
-                unit: 'kg',
-                criticalLevel: 3,
-                estimatedUsage: 0.8,
-                cost: 85000,
-                lastRestocked: '2024-01-19T14:30:00Z'
-            },
-            {
-                id: 'tomato_sauce',
-                name: 'Tomato Sauce',
-                category: 'Base',
-                currentStock: 12,
-                maxCapacity: 20,
-                unit: 'liters',
-                criticalLevel: 4,
-                estimatedUsage: 0.3,
-                cost: 25000,
-                lastRestocked: '2024-01-18T09:15:00Z'
-            },
-            {
-                id: 'pepperoni',
-                name: 'Pepperoni',
-                category: 'Toppings',
-                currentStock: 3,
-                maxCapacity: 8,
-                unit: 'kg',
-                criticalLevel: 2,
-                estimatedUsage: 0.5,
-                cost: 120000,
-                lastRestocked: '2024-01-17T16:45:00Z'
-            },
-            {
-                id: 'mushrooms',
-                name: 'Fresh Mushrooms',
-                category: 'Toppings',
-                currentStock: 2,
-                maxCapacity: 6,
-                unit: 'kg',
-                criticalLevel: 1,
-                estimatedUsage: 0.3,
-                cost: 45000,
-                lastRestocked: '2024-01-16T11:20:00Z'
-            },
-            {
-                id: 'olive_oil',
-                name: 'Olive Oil',
-                category: 'Base',
-                currentStock: 5,
-                maxCapacity: 8,
-                unit: 'liters',
-                criticalLevel: 2,
-                estimatedUsage: 0.1,
-                cost: 65000,
-                lastRestocked: '2024-01-15T13:00:00Z'
-            },
-            {
-                id: 'gas',
-                name: 'Cooking Gas',
-                category: 'Equipment',
-                currentStock: 2,
-                maxCapacity: 4,
-                unit: 'tanks',
-                criticalLevel: 1,
-                estimatedUsage: 0.1,
-                cost: 35000,
-                lastRestocked: '2024-01-14T08:30:00Z'
-            }
-        ];
-
-        // Mock earnings data
-        this.mockEarnings = {
-            today: {
-                deliveries: 12,
-                grossEarnings: 180000,
-                commission: 27000,
-                expenses: 35000,
-                netEarnings: 145000,
-                tips: 25000,
-                bonus: 15000
-            },
-            week: {
-                deliveries: 78,
-                grossEarnings: 1170000,
-                commission: 175500,
-                expenses: 245000,
-                netEarnings: 925000,
-                tips: 156000,
-                bonus: 75000
-            },
-            month: {
-                deliveries: 312,
-                grossEarnings: 4680000,
-                commission: 702000,
-                expenses: 890000,
-                netEarnings: 3790000,
-                tips: 624000,
-                bonus: 300000
-            }
-        };
-
-        // Mock transactions
-        this.mockTransactions = [
-            {
-                id: 'TXN001',
-                driverId: 'driver_001',
-                type: 'delivery',
-                orderId: 'PZ-2024-156',
-                amount: 15000,
-                customerTip: 5000,
-                date: new Date().toISOString(),
-                status: 'completed',
-                description: 'Order delivery commission'
-            },
-            {
-                id: 'TXN002', 
-                driverId: 'driver_001',
-                type: 'delivery',
-                orderId: 'PZ-2024-155',
-                amount: 22500,
-                customerTip: 0,
-                date: new Date(Date.now() - 3600000).toISOString(),
-                status: 'completed',
-                description: 'Order delivery commission'
-            },
-            {
-                id: 'TXN003',
-                driverId: 'driver_001',
-                type: 'bonus',
-                description: 'Peak hours bonus',
-                amount: 15000,
-                date: new Date(Date.now() - 7200000).toISOString(),
-                status: 'completed'
-            },
-            {
-                id: 'TXN004',
-                driverId: 'driver_001',
-                type: 'expense',
-                description: 'Gas refill',
-                amount: -25000,
-                date: new Date(Date.now() - 10800000).toISOString(),
-                status: 'completed'
-            }
-        ];
+        // Mock stock, earnings, and transactions from central data
+        this.mockStock = JSON.parse(JSON.stringify(driverStockData));
+        this.mockEarnings = JSON.parse(JSON.stringify(driverEarningsData));
+        this.mockTransactions = JSON.parse(JSON.stringify(driverTransactionsData));
     }
 
     // Get driver profile by ID
@@ -533,39 +357,8 @@ export class DriverApiService extends BaseApiService {
                 return this.createMockError('Driver not found', 404);
             }
             
-            // Mock additional drivers for exchange
-            const mockNearbyDrivers = [
-                {
-                    id: 'driver_002',
-                    name: 'Bu Sari',
-                    rating: 4.6,
-                    distance: 2.3,
-                    avatar: 'https://example.com/avatar2.jpg',
-                    currentLocation: { lat: -7.2605, lng: 112.7551 },
-                    availableStock: [
-                        { id: 'cheese', quantity: 5, unit: 'kg' },
-                        { id: 'tomato_sauce', quantity: 8, unit: 'liters' }
-                    ],
-                    neededStock: [
-                        { id: 'pepperoni', quantity: 2, unit: 'kg' }
-                    ]
-                },
-                {
-                    id: 'driver_003',
-                    name: 'Pak Budi',
-                    rating: 4.9,
-                    distance: 4.7,
-                    avatar: 'https://example.com/avatar3.jpg',
-                    currentLocation: { lat: -7.2425, lng: 112.7621 },
-                    availableStock: [
-                        { id: 'flour', quantity: 10, unit: 'kg' },
-                        { id: 'olive_oil', quantity: 3, unit: 'liters' }
-                    ],
-                    neededStock: [
-                        { id: 'mushrooms', quantity: 1, unit: 'kg' }
-                    ]
-                }
-            ];
+            // Mock additional drivers for exchange from central data
+            const mockNearbyDrivers = JSON.parse(JSON.stringify(driverNearbyDriversData));
             
             return this.createMockResponse({
                 nearbyDrivers: mockNearbyDrivers,

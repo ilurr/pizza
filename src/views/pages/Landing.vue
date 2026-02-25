@@ -2,10 +2,11 @@
 import FloatingMenu from '@/components/landing/FloatingMenu.vue';
 import HeroWidget from '@/components/landing/HeroWidget.vue';
 import PizzaCard from '@/components/PizzaCard.vue';
-import ProductDetailModal from '@/components/ProductDetailModal.vue';
 import AppTopbar from '@/layout/AppTopbar.vue';
 import { ProductService } from '@/service/ProductService.js';
-import { onMounted, ref } from 'vue';
+import { defineAsyncComponent, onMounted, ref } from 'vue';
+
+const ProductDetailModal = defineAsyncComponent(() => import('@/components/ProductDetailModal.vue'));
 
 const popularPizzas = ref([]);
 const modalVisible = ref(false);

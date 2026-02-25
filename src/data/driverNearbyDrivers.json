@@ -1,0 +1,33 @@
+[
+  {
+    "id": "driver_002",
+    "name": "Bu Sari",
+    "rating": 4.6,
+    "distance": 2.3,
+    "avatar": "https://example.com/avatar2.jpg",
+    "currentLocation": { "lat": -7.2605, "lng": 112.7551 },
+    "availableStock": [
+      { "id": "cheese", "quantity": 5, "unit": "kg" },
+      { "id": "tomato_sauce", "quantity": 8, "unit": "liters" }
+    ],
+    "neededStock": [
+      { "id": "pepperoni", "quantity": 2, "unit": "kg" }
+    ]
+  },
+  {
+    "id": "driver_003",
+    "name": "Pak Budi",
+    "rating": 4.9,
+    "distance": 4.7,
+    "avatar": "https://example.com/avatar3.jpg",
+    "currentLocation": { "lat": -7.2425, "lng": 112.7621 },
+    "availableStock": [
+      { "id": "flour", "quantity": 10, "unit": "kg" },
+      { "id": "olive_oil", "quantity": 3, "unit": "liters" }
+    ],
+    "neededStock": [
+      { "id": "mushrooms", "quantity": 1, "unit": "kg" }
+    ]
+  }
+]
+

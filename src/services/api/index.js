@@ -11,7 +11,7 @@ import notificationApi from './NotificationApiService.js';
 import promoApi from './PromoApiService.js';
 
 // Payment service integration (existing service)
-import PaymentService from '../PaymentService.js';
+import PaymentService from '@/service/PaymentService.js';
 
 /**
  * Main API Client that manages all services

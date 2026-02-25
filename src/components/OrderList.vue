@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import OrderTrackingModal from '@/components/OrderTrackingModal.vue';
-import { ref } from 'vue';
+import { defineAsyncComponent, ref } from 'vue';
+
+const OrderTrackingModal = defineAsyncComponent(() => import('@/components/OrderTrackingModal.vue'));
 
 interface EmptyStateConfig {
 	title: string;
@@ -83,7 +84,7 @@ const handleCardClick = (order: any) => {
 			<div class="mb-4">
 				<i v-if="emptyState.iconType === 'icon'" :class="emptyState.iconClass"></i>
 				<img v-else-if="emptyState.iconType === 'image'" :src="emptyState.imageSrc" :alt="emptyState.title"
-					class="w-64 h-64 mx-auto">
+					loading="lazy" class="w-64 h-64 mx-auto">
 			</div>
 			<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">{{ emptyState.title }}</h3>
 			<p class="text-gray-500 dark:text-gray-400 mb-4">{{ emptyState.message }}</p>

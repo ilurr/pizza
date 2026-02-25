@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import PromoModal from '@/components/PromoModal.vue';
+import { defineAsyncComponent, computed, ref } from 'vue';
 import { useCartStore } from '@/stores/cartStore.js';
 import { useToast } from 'primevue/usetoast';
-import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+const PromoModal = defineAsyncComponent(() => import('@/components/PromoModal.vue'));
 
 interface Props {
     visible: boolean;
@@ -168,7 +169,8 @@ const proceedToCheckout = () => {
                     <div
                         class="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
                         <i class="pi pi-image text-2xl text-gray-400" v-if="!item.image"></i>
-                        <img v-else :src="item.image" :alt="item.name" class="w-full h-full object-cover rounded-lg" />
+                        <img v-else :src="item.image" :alt="item.name" loading="lazy"
+                            class="w-full h-full object-cover rounded-lg" />
                     </div>
 
                     <!-- Item Details -->

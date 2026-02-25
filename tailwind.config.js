@@ -15,8 +15,12 @@ export default {
         },
         extend: {
             colors: {
-                'papa-red': '#E9282A', // Custom red color from logo
-                'papa-yellow': '#FFE81B' // Custom red color from logo
+                // Core brand colors (2-color identity)
+                'brand-primary': '#E9282A',
+                'brand-secondary': '#FFE81B',
+                // Backwards-compatible aliases
+                'papa-red': '#E9282A',
+                'papa-yellow': '#FFE81B'
             }
         }
     }

@@ -1,5 +1,5 @@
 <script setup>
-import logo from '@/assets/images/LogoCircleRedSVG.svg';
+import brandConfig from '@/brand/brandConfig.ts';
 import { useAuth } from '@/composables/useAuth';
 import { useAvatar } from '@/composables/useAvatar';
 import { useRoles } from '@/composables/useRoles';
@@ -160,9 +160,9 @@ onUnmounted(() => {
 
 			<router-link :to="isDashboardRoute ? '/dashboard' : '/'" class="layout-topbar-logo">
 				<div class="flex justify-center items-center w-10">
-					<img :src="logo" alt="" />
+					<img :src="brandConfig.logos.circle" :alt="brandConfig.shortName" />
 				</div>
-				<span class="hidden lg:block">Panggil Papa <em>Pizza</em></span>
+				<span class="hidden lg:block">{{ brandConfig.shortName }}</span>
 			</router-link>
 		</div>
 

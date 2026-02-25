@@ -9,6 +9,7 @@ import Lara from '@primeuix/themes/lara';
 import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
+import brandConfig from '@/brand/brandConfig.ts';
 
 import '@/assets/styles.scss';
 
@@ -23,8 +24,8 @@ const MyPreset = definePreset(Lara, {
             100: '#fbbfc1',
             200: '#f58a8e',
             300: '#ef545c',
-            400: '#ea1f2a',
-            500: '#ff0009',
+            400: brandConfig.colors.primary,
+            500: brandConfig.colors.primary,
             600: '#d40008',
             700: '#aa0007',
             800: '#800005',

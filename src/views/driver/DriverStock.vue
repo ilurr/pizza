@@ -1,89 +1,12 @@
 <script setup>
+import api from '@/services/api/index.js';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
 
-// Stock data
-const stockItems = ref([
-    {
-        id: 'flour',
-        name: 'Pizza Flour',
-        category: 'Base',
-        currentStock: 15,
-        maxCapacity: 25,
-        unit: 'kg',
-        criticalLevel: 5,
-        estimatedUsage: 2.5, // per pizza
-        cost: 15000
-    },
-    {
-        id: 'cheese',
-        name: 'Mozzarella Cheese',
-        category: 'Toppings',
-        currentStock: 8,
-        maxCapacity: 15,
-        unit: 'kg',
-        criticalLevel: 3,
-        estimatedUsage: 0.8,
-        cost: 85000
-    },
-    {
-        id: 'tomato_sauce',
-        name: 'Tomato Sauce',
-        category: 'Base',
-        currentStock: 12,
-        maxCapacity: 20,
-        unit: 'liters',
-        criticalLevel: 4,
-        estimatedUsage: 0.3,
-        cost: 25000
-    },
-    {
-        id: 'pepperoni',
-        name: 'Pepperoni',
-        category: 'Toppings',
-        currentStock: 3,
-        maxCapacity: 8,
-        unit: 'kg',
-        criticalLevel: 2,
-        estimatedUsage: 0.5,
-        cost: 120000
-    },
-    {
-        id: 'mushrooms',
-        name: 'Fresh Mushrooms',
-        category: 'Toppings',
-        currentStock: 2,
-        maxCapacity: 6,
-        unit: 'kg',
-        criticalLevel: 1,
-        estimatedUsage: 0.3,
-        cost: 45000
-    },
-    {
-        id: 'olive_oil',
-        name: 'Olive Oil',
-        category: 'Base',
-        currentStock: 5,
-        maxCapacity: 8,
-        unit: 'liters',
-        criticalLevel: 2,
-        estimatedUsage: 0.1,
-        cost: 65000
-    },
-    {
-        id: 'gas',
-        name: 'Cooking Gas',
-        category: 'Equipment',
-        currentStock: 2,
-        maxCapacity: 4,
-        unit: 'tanks',
-        criticalLevel: 1,
-        estimatedUsage: 0.1,
-        cost: 35000
-    }
-]);
+// Stock data (loaded from DriverApiService in mock/real mode)
+const stockItems = ref([]);
 
 const selectedItems = ref([]);
 const restockDialog = ref(false);
@@ -181,8 +104,19 @@ const updateStock = (item, newQuantity) => {
 };
 
 // Lifecycle
+const loadStock = async () => {
+    try {
+        const res = await api.drivers.getDriverStock('driver_001');
+        if (res && res.success) {
+            stockItems.value = res.data.stock;
+        }
+    } catch (error) {
+        console.error('Failed to load driver stock:', error);
+    }
+};
+
 onMounted(() => {
-    // Simulate getting driver's current stock from API
+    loadStock();
 });
 </script>
 

@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "username": "bram",
+    "email": "bram@papapizza.com",
+    "password": "Bram123",
+    "fullname": "Bram - Driver",
+    "avatar": "https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg",
+    "role": { "type": "drivers" }
+  },
+  {
+    "id": 2,
+    "username": "admin",
+    "email": "admin@papapizza.com",
+    "password": "Admin123",
+    "fullname": "Admin - Super Admin",
+    "avatar": "",
+    "role": { "type": "admin" }
+  },
+  {
+    "id": 3,
+    "username": "customer",
+    "email": "customer@papapizza.com",
+    "password": "Customer123",
+    "fullname": "Customer - Pizza Lover",
+    "avatar": "",
+    "role": { "type": "customer" }
+  },
+  {
+    "id": 4,
+    "username": "mitra",
+    "email": "mitra@papapizza.com",
+    "password": "Mitra123",
+    "fullname": "Mitra - Partner",
+    "avatar": "",
+    "role": { "type": "mitra" }
+  }
+]

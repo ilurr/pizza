@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import FloatingMenu from '@/components/landing/FloatingMenu.vue';
 import PizzaCard from '@/components/PizzaCard.vue';
-import ProductDetailModal from '@/components/ProductDetailModal.vue';
 import AppTopbar from '@/layout/AppTopbar.vue';
 
 import { ProductService } from '@/service/ProductService.js';
-import { onMounted, ref } from 'vue';
+import { defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+const ProductDetailModal = defineAsyncComponent(() => import('@/components/ProductDetailModal.vue'));
 
 const router = useRouter();
 

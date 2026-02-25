@@ -80,9 +80,9 @@ const loadUserOrders = async () => {
 			await userStore.fetchUser();
 		}
 
-		// TODO: Replace this with real API call to fetch user's orders
-		// For now, using ProductService but this should be replaced with user-specific orders
-		const orders = await ProductService.getOrders();
+		// Use ProductService facade (API under the hood) with user-specific id when available
+		const userId = userStore.user?.id ?? 'guest_user';
+		const orders = await ProductService.getOrders(userId);
 
 		// Filter orders for history (delivered, cancelled)
 		orderHistory.value = orders.filter(order =>

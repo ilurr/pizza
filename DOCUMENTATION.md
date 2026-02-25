@@ -69,7 +69,7 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
 
 ### 2.5 Legacy / Feature Services (`src/service/`)
 
-- **ProductService.js:** Reads `data/pizzas.json`, `beverages.json`, `orders.json`; getPizzas, getBeverages, getOrders, getMenu, etc. Used by Landing, Menu, OrderNow, MyOrders (not the API ProductsApiService).
+- **ProductService.js:** Facade over products/orders API; main entry points (`getPizzas`, `getBeverages`, `getMenu`, `getOrders`) call `src/services/api` services (mock or real) and fall back to JSON in `src/data` during development. Used by Landing, Menu, OrderNow, MyOrders.
 - **NotificationService.js:** Event bus (`on`/`off`/`emit`); payment callback handling; `addPendingPayment`, `simulatePaymentCallback`; toasts and `payment_update` for PaymentSummary.
 - **PaymentService.js:** Xendit-style API: `createPayment`, `getPaymentStatus`, `handleWebhook`, `simulatePayment`, `generateExternalId`, `formatCurrency`, `getPaymentMethods`, mock checkout URL.
 
@@ -108,7 +108,7 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
 
 ### 3.5 Data Source for Products & Orders (UI)
 
-- **Landing, Menu, OrderNow, MyOrders** use **ProductService** (JSON files), not the centralized `api.products` / `api.orders`. So product and order list in the UI are currently **decoupled** from the API layer.
+- **Landing, Menu, OrderNow, MyOrders** use **ProductService** as a facade over the centralized `api.products` / `api.orders`. The underlying mock data still lives in `src/data/*.json`, but all main fetches now go through the API layer (with JSON only as a fallback in mock mode).
 
 ---
 
@@ -121,10 +121,10 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
    - If state exists and not stale: resume (location/driver/menu).
 
 2. **Location**  
-   - User opens LocationPickerModal → picks on map (coverage checked) → `orderStore.setUserLocation(location)` → `searchNearbyDrivers(location)` (mock 2s delay, mock list; 20% no drivers, 30% all unavailable).
+   - User opens LocationPickerModal → picks on map (coverage checked via polygons from `coverageAreas.json`) → `orderStore.setUserLocation(location)` → `searchNearbyDrivers(location)` which calls `api.drivers.getAvailableDrivers(location)` (mock or real, via `DriverApiService`).
 
 3. **Driver**  
-   - List of “pizza chefs” → `orderStore.selectDriver(driver)` → menu loaded via ProductService.getPizzas().
+   - List of “pizza chefs” (from `api.drivers.getAvailableDrivers`) → `orderStore.selectDriver(driver)` → menu loaded via `ProductService.getPizzas()` (which calls `api.products.getPizzas()` under the hood).
 
 4. **Menu & Cart**  
    - PizzaCard add to cart → `cartStore.addToCart(pizza, quantity)`. FloatingCart appears; user can open CartModal (edit qty, promo, checkout).
@@ -147,10 +147,8 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
 
 - **MyOrders.vue:** Tabs “History” vs “On Progress”.  
 - If not authenticated: empty states with “Sign in” CTA; `goToLogin()`.  
-- If authenticated: `ProductService.getOrders()` (static JSON), filtered into `orderHistory` (delivered, cancelled) and `onProgressOrders` (waiting, preparing, on_delivery).  
-- **useActiveOrders:** Same ProductService.getOrders(), filters active statuses; used for FloatingMenu badge and polling (e.g. 30s) when authenticated.
-
-So: **orders shown on My Orders and for the badge are from static JSON, not from OrdersApiService or any real backend.**
+- If authenticated: calls `ProductService.getOrders(userId)` (which forwards to `api.orders.getUserOrders(userId)` in mock/real mode), then splits results into `orderHistory` (delivered, cancelled) and `onProgressOrders` (waiting, preparing, on_delivery).  
+- **useActiveOrders:** Same `ProductService.getOrders(userId)` path, then filters for active statuses; used for FloatingMenu badge and 30s polling when authenticated.
 
 ### 4.4 Driver Flow (Driver Store & Views)
 
@@ -192,7 +190,7 @@ So: **orders shown on My Orders and for the badge are from static JSON, not from
 
 ## 8. Important Gaps & Inconsistencies (for adjustments)
 
-1. **Dual data sources:** UI uses **ProductService** (JSON) for pizzas, beverages, orders; API layer has **ProductsApiService** / **OrdersApiService** with mock/real switch. Unifying on the API layer (and optionally keeping ProductService as fallback) will simplify moving to a real backend.
+1. **Dual data sources (mostly resolved):** Main flows now use **ProductService** as a facade over the API layer (`api.products` / `api.orders`), with JSON only as a mock fallback in `src/data`. Some legacy helper methods still read JSON directly, but the UI is no longer decoupled from the API layer.
 
 2. **Payment Summary has no auth:** Anyone can open `/payment-summary`; it only checks cart empty and redirects to `/order/now` after 2s. Consider requiring auth or at least a shared secret/session for payment.
 
@@ -200,13 +198,13 @@ So: **orders shown on My Orders and for the badge are from static JSON, not from
 
 4. **Checkout from OrderNow:** OrderNow’s `handleCheckout` only sets `orderStore.setCurrentStep('checkout')` and shows an alert; actual navigation to payment is from **CartModal** “Proceed to Checkout”. So the “checkout” step in the stepper is not tied to a separate page; the real next step is opening CartModal and then going to Payment Summary.
 
-5. **My Orders:** Uses static `ProductService.getOrders()`; not user-scoped and not from API. Replace with `api.orders.getUserOrders(userId)` (and real auth/user id) when wiring to backend.
+5. **My Orders:** Uses `ProductService.getOrders(userId)` which now calls `api.orders.getUserOrders(userId)` under the hood. When wiring to a real backend, ensure `userId` corresponds to the authenticated user from your auth system.
 
-6. **Driver list on Order Now:** Fully mock (hardcoded drivers + random “no drivers” / “all unavailable”). Should be replaced by `api.drivers.getAvailableDrivers(location)` or equivalent.
+6. **Driver list on Order Now:** Now uses `api.drivers.getAvailableDrivers(location)` via `DriverApiService`. When switching to a real backend, ensure the driver-availability endpoint matches the current mock response shape (id, name, rating, distance, avatar, etc.).
 
 7. **Promo:** Cart applies promo via PromoApiService (validate/apply); PaymentSummary shows applied promo and discount. Ensure promo validation runs again before payment (e.g. in PaymentSummary or right before createPayment).
 
-8. **Env:** No `.env` in repo; document and add `.env.example` with `VITE_USE_MOCK_API`, `VITE_API_BASE_URL`, `VITE_STRAPI_URL`, `VITE_XENDIT_WEBHOOK_SECRET`.
+8. **Env:** `.env.example` now documents `VITE_USE_MOCK_API`, `VITE_API_BASE_URL`, `VITE_STRAPI_URL`, `VITE_XENDIT_WEBHOOK_SECRET`, and optional `VITE_OPENROUTESERVICE_API_KEY`, but you still need to provide real values for each environment and keep secrets out of version control.
 
 ---
 

@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/userStore';
+import authUsersData from '@/data/authUsers.json';
 
 const API_URL = 'http://localhost:1337/api'; // Change to your Strapi URL
 
@@ -21,23 +22,14 @@ export async function login(identifier: string, password: string): Promise<User>
         // });
         // const { jwt, user } = response.data;
 
-        // Static login sample data
-        const staticUsers = [
-            {
-                id: 1,
-                username: 'bram',
-                email: 'bram@papapizza.com',
-                password: 'Bram123',
-                role: { type: 'drivers' }
-            },
-            {
-                id: 2,
-                username: 'admin',
-                email: 'admi@papapizza.com',
-                password: 'Admin123',
-                role: { type: 'mitra' }
-            }
-        ];
+        // Static login sample data (from src/data/authUsers.json)
+        const staticUsers = authUsersData as Array<{
+            id: number;
+            username: string;
+            email: string;
+            password: string;
+            role: { type: string };
+        }>;
 
         const foundUser = staticUsers.find((u) => (u.email === identifier || u.username === identifier) && u.password === password);
 

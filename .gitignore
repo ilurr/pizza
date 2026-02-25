@@ -6,6 +6,7 @@ coverage
 .cache
 .output
 .env
+.env.example
 dist
 .DS_Store
 .idea
