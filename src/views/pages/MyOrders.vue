@@ -118,7 +118,7 @@ onMounted(async () => {
 		<div class="landing-wrapper overflow-hidden">
 			<app-topbar variant="page-header" page-title="My Orders" @back="goBack"></app-topbar>
 			<FloatingMenu />
-			<div class="relative lg:mx-80 mx-auto pt-16 md:pt-16 mb-32">
+			<div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
 
 				<!-- PrimeVue Tabs -->
 				<Tabs v-model:value="activeTab">

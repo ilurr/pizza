@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import StarRating from '@/components/StarRating.vue';
 import { useLeaflet } from '@/composables/useLeaflet';
 import { useTrackingService } from '@/composables/useTrackingService';
 import NotificationService from '@/service/NotificationService.js';
@@ -17,7 +18,10 @@ const props = defineProps({
 	}
 });
 
-const emit = defineEmits(['update:visible']);
+const emit = defineEmits(['update:visible', 'rate']);
+
+const selectedFoodRating = ref(0);
+const selectedDriverRating = ref(0);
 
 const orderStore = useOrderStore();
 
@@ -388,14 +392,41 @@ const closeModal = () => {
 	isVisible.value = false;
 };
 
+const foodScore = (order: any) => order?.rating?.foodScore ?? order?.rating?.score ?? 0;
+const driverScore = (order: any) => order?.rating?.driverScore ?? 0;
+
+const onRateFood = (score: number) => {
+	selectedFoodRating.value = score;
+	emit('rate', { orderId: props.order?.id, type: 'food', score });
+};
+
+const onRateDriver = (score: number) => {
+	selectedDriverRating.value = score;
+	emit('rate', { orderId: props.order?.id, type: 'driver', score });
+};
+
+const hasFoodRating = (order: any) => (foodScore(order) || selectedFoodRating.value) > 0;
+const hasDriverRating = (order: any) => (driverScore(order) || selectedDriverRating.value) > 0;
+
 // Lifecycle
 watch(() => props.visible, (newVal) => {
+	if (newVal && props.order) {
+		selectedFoodRating.value = foodScore(props.order);
+		selectedDriverRating.value = driverScore(props.order);
+	}
 	if (newVal && props.order && orderCanBeTracked.value) {
 		setTimeout(() => {
 			initializeMap();
 		}, 300); // Wait for modal to render
 	}
 });
+
+watch(() => props.order, (order) => {
+	if (order) {
+		selectedFoodRating.value = foodScore(order);
+		selectedDriverRating.value = driverScore(order);
+	}
+}, { immediate: true });
 
 onUnmounted(() => {
 	if (map.value) {
@@ -556,6 +587,35 @@ onUnmounted(() => {
 				</p>
 			</div>
 
+			<!-- Rating Section (delivered orders only) -->
+			<div v-if="currentOrder.status === 'delivered'" class="mt-6">
+				<h4 class="font-semibold mb-3 text-gray-900 dark:text-white text-lg">Rating</h4>
+				<div class="space-y-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<div class="relative space-y-4">
+						<div class="flex items-center justify-between gap-2">
+							<div class="font-medium text-gray-900 dark:text-white mb-0">Rate the food</div>
+							<div v-if="hasFoodRating(order)" class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+								<span class="text-sm">{{ foodScore(order) || selectedFoodRating }}/5</span>
+								<StarRating :model-value="foodScore(order) || selectedFoodRating" readonly size="xl" />
+							</div>
+							<div v-else class="flex items-center gap-2">
+								<StarRating :model-value="selectedFoodRating" size="xl" @update:model-value="onRateFood" />
+							</div>
+						</div>
+						<div class="flex items-center justify-between gap-2">
+							<div class="font-medium text-gray-900 dark:text-white mb-0">Rate the chef</div>
+							<div v-if="hasDriverRating(order)" class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+								<span class="text-sm">{{ driverScore(order) || selectedDriverRating }}/5</span>
+								<StarRating :model-value="driverScore(order) || selectedDriverRating" readonly size="xl" />
+							</div>
+							<div v-else class="flex items-center gap-2">
+								<StarRating :model-value="selectedDriverRating" size="xl" @update:model-value="onRateDriver" />
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			<!-- Order Items Detail -->
 			<div class="mt-6">
 				<h4 class="font-semibold mb-3 text-gray-900 dark:text-white text-lg">Order Items</h4>
@@ -574,14 +634,16 @@ onUnmounted(() => {
 					<!-- Subtotal -->
 					<div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
 						<p class="font-medium text-gray-900 dark:text-white mb-0">Subtotal</p>
-						<p class="font-medium text-gray-900 dark:text-white">Rp{{ currentOrder.subtotal.toLocaleString('id-ID') }}</p>
+						<p class="font-medium text-gray-900 dark:text-white">Rp{{ currentOrder.subtotal.toLocaleString('id-ID') }}
+						</p>
 					</div>
-					
+
 					<!-- Discount (if applicable) -->
 					<div v-if="currentOrder.discount && currentOrder.discount > 0" class="flex justify-between items-center pt-1">
 						<div>
 							<p class="font-medium text-gray-900 dark:text-white mb-0">Discount</p>
-							<p v-if="currentOrder.promoCode" class="text-xs text-blue-600 dark:text-blue-400">{{ currentOrder.promoCode }} - {{ currentOrder.promoTitle }}</p>
+							<p v-if="currentOrder.promoCode" class="text-xs text-blue-600 dark:text-blue-400">{{
+								currentOrder.promoCode }} - {{ currentOrder.promoTitle }}</p>
 						</div>
 						<p class="font-medium text-red-600">-Rp{{ currentOrder.discount.toLocaleString('id-ID') }}</p>
 					</div>

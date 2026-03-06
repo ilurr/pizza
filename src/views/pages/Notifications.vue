@@ -267,7 +267,7 @@ onUnmounted(() => {
 				:notification-stats="notificationStats" @back="goBack" @mark-all-read="handleMarkAllRead"
 				@clear-all="handleClearAll"></app-topbar>
 
-			<div class="relative lg:mx-80 mx-auto pt-16 md:pt-16 mb-32">
+			<div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
 				<div class="relative md:py-4">
 
 					<!-- Stats Cards -->

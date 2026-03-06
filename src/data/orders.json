@@ -2,10 +2,10 @@
     {
         "id": "order001",
         "orderNumber": "PZ-2024-001",
-        "customerId": "user001",
-        "customerName": "Budi Santoso",
+        "customerId": "3",
+        "customerName": "Customer - Pizza Lover",
         "customerPhone": "081234567890",
-        "customerEmail": "budi.santoso@email.com",
+        "customerEmail": "customer@papapizza.com",
         "orderDate": "2024-07-10T10:30:00Z",
         "status": "delivered",
         "items": [
@@ -45,10 +45,10 @@
     {
         "id": "order002",
         "orderNumber": "PZ-2024-002",
-        "customerId": "user002",
-        "customerName": "Siti Aminah",
-        "customerPhone": "081234567891",
-        "customerEmail": "siti.aminah@email.com",
+        "customerId": "3",
+        "customerName": "Customer - Pizza Lover",
+        "customerPhone": "081234567890",
+        "customerEmail": "customer@papapizza.com",
         "orderDate": "2024-07-10T14:15:00Z",
         "status": "waiting",
         "items": [
@@ -97,10 +97,10 @@
     {
         "id": "order003",
         "orderNumber": "PZ-2024-003",
-        "customerId": "user003",
-        "customerName": "Ahmad Wijaya",
-        "customerPhone": "081234567892",
-        "customerEmail": "ahmad.wijaya@email.com",
+        "customerId": "3",
+        "customerName": "Customer - Pizza Lover",
+        "customerPhone": "081234567890",
+        "customerEmail": "customer@papapizza.com",
         "orderDate": "2024-07-10T16:45:00Z",
         "status": "on_delivery",
         "items": [
@@ -139,10 +139,10 @@
     {
         "id": "order004",
         "orderNumber": "PZ-2024-004",
-        "customerId": "user004",
-        "customerName": "Dewi Lestari",
-        "customerPhone": "081234567893",
-        "customerEmail": "dewi.lestari@email.com",
+        "customerId": "3",
+        "customerName": "Customer - Pizza Lover",
+        "customerPhone": "081234567890",
+        "customerEmail": "customer@papapizza.com",
         "orderDate": "2024-07-09T19:20:00Z",
         "status": "cancelled",
         "items": [
@@ -230,5 +230,55 @@
         },
         "estimatedDelivery": "2024-07-11T13:15:00Z",
         "notes": "Minta extra sambal"
+    },
+    {
+        "id": "order006",
+        "orderNumber": "PZ-2024-006",
+        "customerId": "3",
+        "customerName": "Customer - Pizza Lover",
+        "customerPhone": "081234567890",
+        "customerEmail": "customer@papapizza.com",
+        "orderDate": "2024-07-12T19:00:00Z",
+        "status": "delivered",
+        "items": [
+            {
+                "id": "pizza002",
+                "name": "Pepperoni Supreme",
+                "size": "Medium",
+                "quantity": 1,
+                "price": 65000,
+                "total": 65000
+            },
+            {
+                "id": "drink001",
+                "name": "Coca Cola",
+                "size": "Regular",
+                "quantity": 1,
+                "price": 8000,
+                "total": 8000
+            }
+        ],
+        "subtotal": 73000,
+        "deliveryFee": 0,
+        "discount": 3000,
+        "promoCode": "WELCOME20",
+        "promoTitle": "Welcome Discount",
+        "total": 70000,
+        "paymentMethod": "QRIS",
+        "paymentStatus": "paid",
+        "deliveryAddress": {
+            "street": "Jl. Raya Gubeng No. 123",
+            "district": "Gubeng",
+            "city": "Surabaya",
+            "postalCode": "60281"
+        },
+        "estimatedDelivery": "2024-07-12T19:45:00Z",
+        "deliveryTime": "2024-07-12T19:40:00Z",
+        "notes": "Tambah saus sambal sedikit",
+        "rating": {
+            "score": 5,
+            "comment": "Pizza masih panas, rasanya enak banget!",
+            "ratedAt": "2024-07-12T20:00:00Z"
+        }
     }
 ]

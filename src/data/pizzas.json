@@ -5,7 +5,7 @@
         "description": "Pizza klasik dengan saus tomat segar, keju mozzarella, dan daun basil",
         "category": "Classic",
         "price": 45000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/m/a/margherita-500x500px.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1768461172141857375_Cheese%20Volcano%20-%20Default%20Prod%20Carousel%20-%201595x640.webp",
         "ingredients": ["Saus Tomat", "Keju Mozzarella", "Daun Basil", "Olive Oil"],
         "sizes": [
             { "size": "Small", "price": 35000 },
@@ -23,7 +23,7 @@
         "description": "Pizza dengan pepperoni premium, keju mozzarella, dan saus tomat pedas",
         "category": "Meat",
         "price": 65000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/b/e/beef_pepperoni_feast-500x500px.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760412845969580350_PIE%20CB%20-%20Full%20Size%20Prpduct%20Banner%20-%201595x640.webp",
         "ingredients": ["Pepperoni", "Keju Mozzarella", "Saus Tomat Pedas", "Oregano"],
         "sizes": [
             { "size": "Small", "price": 55000 },
@@ -41,7 +41,7 @@
         "description": "Pizza sehat dengan paprika, jamur, bawang bombay, dan zaitun",
         "category": "Vegetarian",
         "price": 55000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/v/e/veggie_mania.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760412973926947386_PIE%20MEATY%20-%20Full%20Size%20Prpduct%20Banner%20-%201595x640.webp",
         "ingredients": ["Paprika", "Jamur", "Bawang Bombay", "Zaitun", "Keju Mozzarella"],
         "sizes": [
             { "size": "Small", "price": 45000 },
@@ -59,7 +59,7 @@
         "description": "Pizza untuk pecinta daging dengan pepperoni, sosis, dan bacon",
         "category": "Meat",
         "price": 85000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/m/e/meat_n_meat.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1764571647937785379_UMO%20-%20Default%20Prod%20Carousel%20-%201595x640.png",
         "ingredients": ["Pepperoni", "Sosis", "Bacon", "Keju Mozzarella"],
         "sizes": [
             { "size": "Small", "price": 75000 },
@@ -77,7 +77,7 @@
         "description": "Pizza manis dengan nanas, dan keju mozzarella",
         "category": "Sweet",
         "price": 60000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/u/l/ultimatecheesemeltnew.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760413503067064904_Extravaganzza%20-%20Default%20Prod%20Carousel%20-%201595x640.webp",
         "ingredients": ["Nanas", "Keju Mozzarella", "Saus Tomat"],
         "sizes": [
             { "size": "Small", "price": 50000 },
@@ -95,7 +95,7 @@
         "description": "Pizza pedas dengan ayam bumbu, cabai, dan keju cheddar",
         "category": "Spicy",
         "price": 70000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/c/h/chicken_lovers-500x500px.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760413555877570252_Veggie%20Mania%20-%20Default%20Prod%20Carousel%20-%201595x640.webp",
         "ingredients": ["Ayam Bumbu", "Cabai", "Keju Cheddar", "Bawang Putih"],
         "sizes": [
             { "size": "Small", "price": 60000 },
@@ -113,7 +113,7 @@
         "description": "Pizza seafood dengan udang, cumi, dan keju mozzarella",
         "category": "Seafood",
         "price": 90000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/e/x/extravaganza-500x500px.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760413325738875378_Alfredo%20Beef%20-%20Default%20Prod%20Carousel%20-%201595x640.webp",
         "ingredients": ["Udang", "Cumi", "Keju Mozzarella", "Saus Putih"],
         "sizes": [
             { "size": "Small", "price": 80000 },
@@ -131,7 +131,7 @@
         "description": "Pizza dengan ayam BBQ, bawang bombay, dan saus BBQ",
         "category": "BBQ",
         "price": 75000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/a/l/alfredo_chicken_truffle_-_update.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760413937681578268_Chicken%20Pepperoni%20-%20Full%20Size%20Prpduct%20Banner%20-%201595x640.webp",
         "ingredients": ["Ayam BBQ", "Bawang Bombay", "Saus BBQ", "Keju Mozzarella"],
         "sizes": [
             { "size": "Small", "price": 65000 },
@@ -149,7 +149,7 @@
         "description": "Pizza dengan keju berlimpah di dalam pinggiran dan topping",
         "category": "Cheese",
         "price": 80000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/a/m/american_classic_cheeseburger-500x500px.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760414483489466555_K%20Lovers%20-%20Full%20Size%20Prpduct%20Banner%20-%201595x640.webp",
         "ingredients": ["Keju Mozzarella", "Keju Cheddar", "Keju Parmesan", "Saus Putih"],
         "sizes": [
             { "size": "Small", "price": 70000 },
@@ -167,7 +167,7 @@
         "description": "Pizza premium dengan jamur truffle, jamur champignon, dan keju",
         "category": "Premium",
         "price": 120000,
-        "image": "https://www.dominos.co.id/media/catalog/product/cache/2/image/9df78eab33525d08d6e5fb8d27136e95/a/l/alfredo_chicken_truffle_-_update.png",
+        "image": "https://static.dominos.co.id/contents/images/catalog/1760414527173959378_CHEESY%20BEEF%20%20-%20Default%20Prod%20Carousel%20-%201595x640.webp",
         "ingredients": ["Jamur Truffle", "Jamur Champignon", "Keju Mozzarella", "Saus Putih"],
         "sizes": [
             { "size": "Small", "price": 110000 },

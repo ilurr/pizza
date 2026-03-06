@@ -175,7 +175,7 @@ onUnmounted(() => {
         <div class="landing-wrapper overflow-hidden">
             <app-topbar variant="page-header" page-title="Payment Summary" @back="goBack"></app-topbar>
 
-            <div class="relative lg:mx-80 mx-auto pt-16 md:pt-16 mb-32">
+            <div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
                 <div class="relative p-4 md:p-0">
 
                     <!-- Order Summary Section -->

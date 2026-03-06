@@ -39,7 +39,7 @@ const showDetail = () => {
 		'card-item relative flex gap-4 border border-gray-300 dark:border-transparent dark:bg-neutral-800 rounded-xl p-4 shadow-sm cursor-pointer md:basis-[calc(50%-(1.5rem/2))]',
 		{ 'unavailable': !pizza.available }
 	]" @click="showDetail">
-		<div class="card-body">
+		<div class="card-body flex-1">
 			<h3 class="font-semibold text-xl mb-2">{{ pizza.name }}</h3>
 			<p :class="['text-gray-600 dark:text-white text-sm mb-2', variant === 'popular' ? 'line-clamp-2' : '']">{{
 				pizza.description }}</p>

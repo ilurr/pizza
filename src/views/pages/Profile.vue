@@ -69,7 +69,7 @@ onMounted(async () => {
 		<div class="landing-wrapper overflow-hidden">
 			<app-topbar variant="page-header" page-title="Profile" @back="goBack"></app-topbar>
 			<FloatingMenu />
-			<div class="relative lg:mx-80 mx-auto pt-16 md:pt-16 mb-32">
+			<div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
 				<div class="relative p-4 md:max-w-xl md:mx-auto">
 
 					<!-- Top Profile Section -->

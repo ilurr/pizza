@@ -3,6 +3,12 @@ import { defineAsyncComponent, ref } from 'vue';
 
 const OrderTrackingModal = defineAsyncComponent(() => import('@/components/OrderTrackingModal.vue'));
 
+const hasRating = (order: any) => {
+	const r = order?.rating;
+	if (!r) return false;
+	return (r.foodScore ?? r.score ?? 0) > 0 || (r.driverScore ?? 0) > 0;
+};
+
 interface EmptyStateConfig {
 	title: string;
 	message: string;
@@ -25,17 +31,17 @@ const selectedOrder = ref(null);
 const getStatusColor = (status: string) => {
 	switch (status) {
 		case 'delivered':
-			return 'bg-green-100 text-green-800';
+			return 'bg-green-200 text-green-800';
 		case 'preparing':
-			return 'bg-blue-100 text-blue-800';
+			return 'bg-blue-200 text-blue-800';
 		case 'waiting':
-			return 'bg-orange-100 text-orange-800';
+			return 'bg-orange-200 text-orange-800';
 		case 'on_delivery':
-			return 'bg-yellow-100 text-yellow-800';
+			return 'bg-yellow-200 text-yellow-800';
 		case 'cancelled':
-			return 'bg-red-100 text-red-800';
+			return 'bg-red-200 text-red-800';
 		default:
-			return 'bg-gray-100 text-gray-800';
+			return 'bg-gray-200 text-gray-800';
 	}
 };
 
@@ -113,9 +119,15 @@ const handleCardClick = (order: any) => {
 						<!-- <span :class="getStatusColor(order.status)" class="px-2 py-1 rounded-full text-xs font-medium">
 							{{ order.status }}
 						</span> -->
-						<p class="font-bold text-base text-green-500 mb-2">Rp{{ order.total.toLocaleString('id-ID') }}</p>
-						<Button v-if="canTrackOrder(order.status)" label="Track Order" outlined rounded size="small"
-							severity="contrast" @click.stop="openTracking(order)" />
+						<p class="font-bold text-base text-gray-900 mb-2">Rp{{ order.total.toLocaleString('id-ID') }}</p>
+						<!-- On-progress tracking CTA -->
+						<Button v-if="showTracking && canTrackOrder(order.status)" label="Track your Chef" rounded size="small"
+							icon="pi pi-map-marker" iconPos="left" severity="success" @click.stop="openTracking(order)" />
+						<!-- History rating CTA: button (not yet rated) -->
+						<Button v-else-if="!showTracking && order.status === 'delivered' && !hasRating(order)" label="Add Rating"
+							severity="primary" icon="pi pi-star" iconPos="left" rounded size="small"
+							@click.stop="openTracking(order)" />
+						<!-- Status pill (delivery status, including delivered/rated orders) -->
 						<span v-else :class="getStatusColor(order.status)" class="px-2 py-1 rounded-full text-xs font-medium">
 							{{ order.status }}
 						</span>

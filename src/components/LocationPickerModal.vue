@@ -86,6 +86,12 @@ const ensureLeafletLoaded = async () => {
 onMounted(async () => {
     if (props.visible) {
         await ensureLeafletLoaded();
+        // Ensure map is initialized on first open as well
+        nextTick(() => {
+            setTimeout(() => {
+                initMap();
+            }, 300);
+        });
     }
 });
 

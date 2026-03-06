@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { defineAsyncComponent, computed, onMounted, ref } from 'vue';
 import FloatingCart from '@/components/FloatingCart.vue';
 import OrderProgressStepper from '@/components/OrderProgressStepper.vue';
 import PizzaCard from '@/components/PizzaCard.vue';
 import AppTopbar from '@/layout/AppTopbar.vue';
-import api from '@/services/api/index.js';
 import { ProductService } from '@/service/ProductService.js';
+import api from '@/services/api/index.js';
 import { useCartStore } from '@/stores/cartStore.js';
 import { useOrderStore } from '@/stores/orderStore.js';
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const CartModal = defineAsyncComponent(() => import('@/components/CartModal.vue'));
@@ -173,7 +173,7 @@ onMounted(() => {
 	<div class="bg-white dark:bg-neutral-900">
 		<div class="landing-wrapper overflow-hidden">
 			<app-topbar variant="page-header" page-title="Order Now" @back="goBack"></app-topbar>
-			<div class="relative lg:mx-80 mx-auto pt-16 md:pt-16 mb-32">
+			<div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
 
 				<div class="relative p-4 md:p-0">
 					<!-- Order Progress -->

@@ -1274,7 +1274,8 @@ export const ProductService = {
     },
 
     async getOrders(userId = 'guest_user') {
-        const res = await api.orders.getUserOrders(userId);
+        const id = String(userId ?? 'guest_user');
+        const res = await api.orders.getUserOrders(id);
         return res && res.success ? res.data.orders : this.getOrdersData();
     },
 
