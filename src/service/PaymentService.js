@@ -13,7 +13,7 @@ export class PaymentService {
             const response = await fetch(`${this.baseURL}/payments/create`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     external_id: paymentData.external_id,
@@ -54,7 +54,7 @@ export class PaymentService {
     static async getPaymentStatus(externalId) {
         try {
             const response = await fetch(`${this.baseURL}/payments/status/${externalId}`);
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to get payment status: ${response.status}`);
             }
@@ -76,7 +76,7 @@ export class PaymentService {
             const response = await fetch(`${this.baseURL}/payments/webhook`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(webhookData)
             });
@@ -99,10 +99,10 @@ export class PaymentService {
      */
     static getPaymentMethods(methodType) {
         const methodMap = {
-            'credit_card': ['CREDIT_CARD'],
-            'bank_transfer': ['BCA', 'BNI', 'BRI', 'MANDIRI', 'PERMATA'],
-            'ewallet': ['OVO', 'DANA', 'LINKAJA', 'SHOPEEPAY'],
-            'qris': ['QRIS']
+            credit_card: ['CREDIT_CARD'],
+            bank_transfer: ['BCA', 'BNI', 'BRI', 'MANDIRI', 'PERMATA'],
+            ewallet: ['OVO', 'DANA', 'LINKAJA', 'SHOPEEPAY'],
+            qris: ['QRIS']
         };
 
         return methodMap[methodType] || ['CREDIT_CARD'];
@@ -139,7 +139,7 @@ export class PaymentService {
      */
     static async simulatePayment(paymentData) {
         // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
         // Return mock Xendit response
         return {
@@ -176,7 +176,7 @@ export class PaymentService {
     /**
      * Mock payment callback for demo
      * @param {string} status - Payment status (PAID, FAILED, PENDING)
-     * @param {string} externalId - Order external ID  
+     * @param {string} externalId - Order external ID
      * @returns {Object} Mock callback data
      */
     static mockPaymentCallback(status, externalId) {

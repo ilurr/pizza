@@ -60,7 +60,6 @@ onMounted(async () => {
         console.error('Error loading data:', error);
     }
 });
-
 </script>
 
 <template>
@@ -69,17 +68,13 @@ onMounted(async () => {
             <app-topbar variant="page-header" page-title="Our Menu" @back="goBack"></app-topbar>
             <FloatingMenu />
             <div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
-
                 <!-- Pizzas Section -->
                 <div class="relative p-4 md:px-0 mb-8">
-                    <h2 class="text-surface-900 dark:text-surface-0 text-xl font-bold mt-6 mb-4 text-left px-2">
-                        🔥 Pizzas </h2>
+                    <h2 class="text-surface-900 dark:text-surface-0 text-xl font-bold mt-6 mb-4 text-left px-2">🔥 Pizzas</h2>
                     <div class="flex flex-wrap gap-4 thumb">
-                        <PizzaCard v-for="pizza in pizzas" :key="pizza.id" :pizza="pizza" @add-to-cart="addToCart"
-                            @show-detail="showPizzaDetail" />
+                        <PizzaCard v-for="pizza in pizzas" :key="pizza.id" :pizza="pizza" @add-to-cart="addToCart" @show-detail="showPizzaDetail" />
                     </div>
                 </div>
-
             </div>
         </div>
 

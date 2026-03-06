@@ -29,19 +29,21 @@ const isWithinCoverage = ref(true);
 const showNotificationRequest = ref(false);
 const isSavingNotification = ref(false);
 
-import coverageAreasData from '@/data/coverageAreas.json';
+import api from '@/services/api';
+import type { Ref } from 'vue';
 
 let map: any = null;
 let marker: any = null;
 let coveragePolygon: any = null;
 let L: any = null;
 
-// Coverage areas from central mock data (src/data/coverageAreas.json)
-const coverageAreas = coverageAreasData as Array<{
+type CoverageArea = {
     city: string;
     bounds: [number, number][];
     polygon: [number, number][];
-}>;
+};
+
+const coverageAreas = ref<CoverageArea[]>([]);
 
 let leafletLoaded = false;
 
@@ -86,6 +88,7 @@ const ensureLeafletLoaded = async () => {
 onMounted(async () => {
     if (props.visible) {
         await ensureLeafletLoaded();
+        await loadCoverageAreas();
         // Ensure map is initialized on first open as well
         nextTick(() => {
             setTimeout(() => {
@@ -94,6 +97,31 @@ onMounted(async () => {
         });
     }
 });
+
+const loadCoverageAreas = async () => {
+    try {
+        const res = await api.locations.getCoverageAreas({ active: true });
+        if (res && res.success && res.data?.coverageAreas) {
+            coverageAreas.value = res.data.coverageAreas.map((area: any) => {
+                const sw = area.bounds?.southwest || area.bounds?.[0] || { lat: -7.3549, lng: 112.6094 };
+                const ne = area.bounds?.northeast || area.bounds?.[1] || { lat: -7.1554, lng: 112.8375 };
+                return {
+                    city: area.city,
+                    bounds: [
+                        [sw.lat, sw.lng],
+                        [ne.lat, ne.lng]
+                    ],
+                    polygon: area.polygon || []
+                } as CoverageArea;
+            });
+        } else {
+            coverageAreas.value = [];
+        }
+    } catch (error) {
+        console.error('Failed to load coverage areas:', error);
+        coverageAreas.value = [];
+    }
+};
 
 const initMap = () => {
     if (!mapContainer.value || !L) return;
@@ -115,7 +143,7 @@ const initMap = () => {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Add coverage area overlay
+        // Add coverage area overlay (if any)
         addCoverageOverlay();
 
         // Add click handler
@@ -144,7 +172,7 @@ const addCoverageOverlay = () => {
     if (!L || !map) return;
 
     // Add coverage area polygon for each city
-    coverageAreas.forEach(area => {
+    coverageAreas.value.forEach(area => {
         const polygon = L.polygon(area.polygon, {
             color: '#10b981',
             weight: 2,
@@ -165,7 +193,7 @@ const addCoverageOverlay = () => {
 
 const checkLocationCoverage = (lat: number, lng: number): boolean => {
     // Check if location is within any coverage area
-    for (const area of coverageAreas) {
+    for (const area of coverageAreas.value) {
         if (isPointInPolygon([lat, lng], area.polygon)) {
             return true;
         }

@@ -9,36 +9,35 @@ const debounce = (fn, wait = 300) => {
     };
 };
 
-const debouncedSetItem = typeof localStorage !== 'undefined'
-    ? debounce((key, value) => localStorage.setItem(key, value), 300)
-    : () => {};
+const debouncedSetItem = typeof localStorage !== 'undefined' ? debounce((key, value) => localStorage.setItem(key, value), 300) : () => {};
 
-const debouncedStorage = typeof localStorage !== 'undefined'
-    ? {
-          getItem: (key) => localStorage.getItem(key),
-          setItem: (key, value) => debouncedSetItem(key, value),
-          removeItem: (key) => localStorage.removeItem(key)
-      }
-    : undefined;
+const debouncedStorage =
+    typeof localStorage !== 'undefined'
+        ? {
+              getItem: (key) => localStorage.getItem(key),
+              setItem: (key, value) => debouncedSetItem(key, value),
+              removeItem: (key) => localStorage.removeItem(key)
+          }
+        : undefined;
 
 export const useOrderStore = defineStore('order', {
     state: () => ({
         // Order progress tracking
         currentStep: 'location', // location -> driver -> menu -> checkout
         completedSteps: [],
-        
+
         // Location data
         userLocation: null,
         availableDrivers: [],
-        
+
         // Driver selection
         selectedDriver: null,
         showDriverList: false,
-        
+
         // Loading states
         isLoadingLocation: false,
         isLoadingDrivers: false,
-        
+
         // Order metadata
         orderStartedAt: null,
         lastActivityAt: null
@@ -53,7 +52,7 @@ export const useOrderStore = defineStore('order', {
             const stepOrder = ['location', 'driver', 'menu', 'checkout'];
             const stepIndex = stepOrder.indexOf(step);
             const currentIndex = stepOrder.indexOf(state.currentStep);
-            
+
             // Can proceed to current step or any completed step
             return stepIndex <= currentIndex || state.completedSteps.includes(step);
         },
@@ -119,7 +118,7 @@ export const useOrderStore = defineStore('order', {
         setUserLocation(location) {
             this.userLocation = location;
             this.completeStep('location');
-            
+
             // Auto proceed to driver selection
             if (this.currentStep === 'location') {
                 this.setCurrentStep('driver');
@@ -137,7 +136,7 @@ export const useOrderStore = defineStore('order', {
             this.selectedDriver = driver;
             this.showDriverList = false;
             this.completeStep('driver');
-            
+
             // Auto proceed to menu
             if (this.currentStep === 'driver') {
                 this.setCurrentStep('menu');
@@ -151,9 +150,7 @@ export const useOrderStore = defineStore('order', {
             this.availableDrivers = [];
             this.selectedDriver = null;
             this.showDriverList = false;
-            this.completedSteps = this.completedSteps.filter(step => 
-                !['location', 'driver', 'menu'].includes(step)
-            );
+            this.completedSteps = this.completedSteps.filter((step) => !['location', 'driver', 'menu'].includes(step));
             this.currentStep = 'location';
             this.updateActivity();
         },
@@ -161,9 +158,7 @@ export const useOrderStore = defineStore('order', {
         resetDriver() {
             this.selectedDriver = null;
             this.showDriverList = this.availableDrivers.length > 0;
-            this.completedSteps = this.completedSteps.filter(step => 
-                !['driver', 'menu'].includes(step)
-            );
+            this.completedSteps = this.completedSteps.filter((step) => !['driver', 'menu'].includes(step));
             this.currentStep = 'driver';
             this.updateActivity();
         },
@@ -185,13 +180,13 @@ export const useOrderStore = defineStore('order', {
         // Resume order state (called when returning to OrderNow page)
         resumeOrder() {
             this.updateActivity();
-            
+
             // If we have location but no driver, show driver selection
             if (this.userLocation && !this.selectedDriver && this.availableDrivers.length > 0) {
                 this.showDriverList = true;
                 this.setCurrentStep('driver');
             }
-            
+
             // If we have both location and driver, allow menu access
             if (this.userLocation && this.selectedDriver) {
                 this.setCurrentStep('menu');
@@ -201,11 +196,11 @@ export const useOrderStore = defineStore('order', {
         // Check if order is stale (more than 30 minutes old)
         isOrderStale() {
             if (!this.lastActivityAt) return false;
-            
+
             const lastActivity = new Date(this.lastActivityAt);
             const now = new Date();
             const diffMinutes = (now - lastActivity) / (1000 * 60);
-            
+
             return diffMinutes > 30; // 30 minutes timeout
         }
     },
@@ -215,15 +210,7 @@ export const useOrderStore = defineStore('order', {
         ? {
               key: 'pizza-order-state',
               storage: debouncedStorage,
-              paths: [
-                  'currentStep',
-                  'completedSteps',
-                  'userLocation',
-                  'availableDrivers',
-                  'selectedDriver',
-                  'orderStartedAt',
-                  'lastActivityAt'
-              ]
+              paths: ['currentStep', 'completedSteps', 'userLocation', 'availableDrivers', 'selectedDriver', 'orderStartedAt', 'lastActivityAt']
           }
         : undefined
 });

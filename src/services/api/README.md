@@ -57,9 +57,11 @@ Set these environment variables in your `.env` file:
 
 ```env
 # API Configuration
-VITE_USE_MOCK_API=true                    # true = mock data, false = real API
+VITE_DATA_SOURCE=supabase                 # supabase = trial DB, api = real API
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_USE_MOCK_API=true                    # legacy; use VITE_DATA_SOURCE for supabase vs api
 VITE_API_BASE_URL=http://localhost:3000/api/v1
-VITE_STRAPI_URL=http://localhost:1337/api
 
 # Payment Configuration (Xendit)
 VITE_XENDIT_WEBHOOK_SECRET=your_webhook_secret

@@ -1,404 +1,302 @@
 import { BaseApiService } from './ApiClient.js';
-import ordersData from '@/data/orders.json';
+import { getSupabaseClient } from '@/services/supabase/client.js';
+
+function rowToOrder(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        orderNumber: row.order_number,
+        customerId: row.customer_id,
+        customerName: row.customer_name,
+        customerPhone: row.customer_phone,
+        customerEmail: row.customer_email,
+        orderDate: row.order_date,
+        status: row.status,
+        items: row.items || [],
+        subtotal: row.subtotal,
+        deliveryFee: row.delivery_fee ?? 0,
+        discount: row.discount ?? 0,
+        total: row.total,
+        paymentMethod: row.payment_method,
+        paymentStatus: row.payment_status,
+        deliveryAddress: row.delivery_address || {},
+        deliveryTime: row.delivery_time,
+        estimatedDelivery: row.estimated_delivery,
+        notes: row.notes,
+        promoCode: row.promo_code,
+        promoTitle: row.promo_title,
+        driverId: row.driver_id,
+        driverInfo: row.driver_info,
+        rating: row.rating,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
+}
+
+function orderToRow(order) {
+    if (!order) return null;
+    const row = {
+        order_number: order.orderNumber,
+        customer_id: order.customerId,
+        customer_name: order.customerName,
+        customer_phone: order.customerPhone,
+        customer_email: order.customerEmail,
+        order_date: order.orderDate,
+        status: order.status,
+        items: order.items,
+        subtotal: order.subtotal,
+        delivery_fee: order.deliveryFee ?? 0,
+        discount: order.discount ?? 0,
+        total: order.total,
+        payment_method: order.paymentMethod,
+        payment_status: order.paymentStatus ?? 'pending',
+        delivery_address: order.deliveryAddress,
+        delivery_time: order.deliveryTime,
+        estimated_delivery: order.estimatedDelivery,
+        notes: order.notes,
+        promo_code: order.promoCode,
+        promo_title: order.promoTitle,
+        driver_id: order.driverId,
+        driver_info: order.driverInfo,
+        rating: order.rating
+    };
+    if (order.id) row.id = order.id;
+    return row;
+}
 
 export class OrdersApiService extends BaseApiService {
     constructor() {
         super();
         this.endpoint = '/orders';
-        this.mockOrders = [...ordersData]; // Copy for manipulation
     }
 
-    // Create a new order
     async createOrder(orderData) {
-        if (this.useMockApi) {
-            await this.mockDelay(1000); // Simulate processing time
-            
-            // Generate new order
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
             const newOrder = {
                 id: `order_${Date.now()}`,
-                orderNumber: `PZ-${new Date().getFullYear()}-${String(this.mockOrders.length + 1).padStart(3, '0')}`,
-                customerId: orderData.customerId || 'guest_user',
-                customerName: orderData.customerName,
-                customerPhone: orderData.customerPhone,
-                customerEmail: orderData.customerEmail,
-                orderDate: new Date().toISOString(),
+                order_number: `PZ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+                customer_id: orderData.customerId || 'guest_user',
+                customer_name: orderData.customerName,
+                customer_phone: orderData.customerPhone,
+                customer_email: orderData.customerEmail,
+                order_date: new Date().toISOString(),
                 status: 'pending',
                 items: orderData.items,
                 subtotal: orderData.subtotal,
-                deliveryFee: orderData.deliveryFee || 0,
-                discount: orderData.discount || 0,
+                delivery_fee: orderData.deliveryFee ?? 0,
+                discount: orderData.discount ?? 0,
                 total: orderData.total,
-                paymentMethod: orderData.paymentMethod,
-                paymentStatus: 'pending',
-                deliveryAddress: orderData.deliveryAddress,
-                estimatedDelivery: new Date(Date.now() + 45 * 60000).toISOString(), // 45 minutes
+                payment_method: orderData.paymentMethod,
+                payment_status: 'pending',
+                delivery_address: orderData.deliveryAddress,
+                estimated_delivery: orderData.estimatedDelivery || new Date(Date.now() + 45 * 60000).toISOString(),
                 notes: orderData.notes || null,
-                driverId: null,
-                driverInfo: null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
-            
-            this.mockOrders.push(newOrder);
-            
-            return this.createMockResponse({
-                order: newOrder,
-                message: 'Order created successfully'
-            });
+            const { data, error } = await supabase.from('orders').insert(newOrder).select().single();
+            if (error) {
+                return this.createMockError(error.message || 'Failed to create order', error.code || 500);
+            }
+            return this.createMockResponse({ order: rowToOrder(data), message: 'Order created successfully' });
         }
-        
-        // Real API call
         return await this.post(this.endpoint, orderData);
     }
 
-    // Get user's orders
     async getUserOrders(userId, filters = {}) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            let userOrders = this.mockOrders.filter(order => 
-                order.customerId === userId || order.customerId === 'guest_user'
-            );
-            
-            // Apply filters
-            if (filters.status) {
-                userOrders = userOrders.filter(order => order.status === filters.status);
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
             }
-            
-            if (filters.dateFrom) {
-                userOrders = userOrders.filter(order => 
-                    new Date(order.orderDate) >= new Date(filters.dateFrom)
-                );
+            let query = supabase.from('orders').select('*').or(`customer_id.eq.${userId},customer_id.eq.guest_user`).order('order_date', { ascending: false });
+            if (filters.status) query = query.eq('status', filters.status);
+            if (filters.dateFrom) query = query.gte('order_date', filters.dateFrom);
+            if (filters.dateTo) query = query.lte('order_date', filters.dateTo);
+            const { data: rows, error } = await query;
+            if (error) {
+                return this.createMockError(error.message || 'Failed to fetch orders', error.code || 500);
             }
-            
-            if (filters.dateTo) {
-                userOrders = userOrders.filter(order => 
-                    new Date(order.orderDate) <= new Date(filters.dateTo)
-                );
-            }
-            
-            // Sort by date (newest first)
-            userOrders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
-            
-            // Pagination
+            const orders = (rows || []).map(rowToOrder);
             const page = filters.page || 1;
             const limit = filters.limit || 10;
             const startIndex = (page - 1) * limit;
-            const paginatedOrders = userOrders.slice(startIndex, startIndex + limit);
-            
+            const paginatedOrders = orders.slice(startIndex, startIndex + limit);
             return this.createMockResponse({
                 orders: paginatedOrders,
-                total: userOrders.length,
-                page: page,
-                limit: limit,
-                totalPages: Math.ceil(userOrders.length / limit)
+                total: orders.length,
+                page,
+                limit,
+                totalPages: Math.ceil(orders.length / limit)
             });
         }
-        
-        // Real API call
         return await this.get(`${this.endpoint}/user/${userId}`, filters);
     }
 
-    // Get specific order by ID
     async getOrder(orderId) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            const order = this.mockOrders.find(o => o.id === orderId);
-            
-            if (!order) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
+            const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
+            if (error || !data) {
                 return this.createMockError('Order not found', 404);
             }
-            
-            return this.createMockResponse({ order });
+            return this.createMockResponse({ order: rowToOrder(data) });
         }
-        
-        // Real API call
         return await this.get(`${this.endpoint}/${orderId}`);
     }
 
-    // Update order status
     async updateOrderStatus(orderId, status, additionalData = {}) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            const orderIndex = this.mockOrders.findIndex(o => o.id === orderId);
-            
-            if (orderIndex === -1) {
-                return this.createMockError('Order not found', 404);
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
             }
-            
-            // Update order status and additional data
-            this.mockOrders[orderIndex] = {
-                ...this.mockOrders[orderIndex],
-                status: status,
-                updatedAt: new Date().toISOString(),
-                ...additionalData
-            };
-            
-            // Handle status-specific updates
-            switch (status) {
-                case 'confirmed':
-                    this.mockOrders[orderIndex].confirmedAt = new Date().toISOString();
-                    break;
-                case 'preparing':
-                    this.mockOrders[orderIndex].preparingAt = new Date().toISOString();
-                    break;
-                case 'on_delivery':
-                    this.mockOrders[orderIndex].onDeliveryAt = new Date().toISOString();
-                    break;
-                case 'delivered':
-                    this.mockOrders[orderIndex].deliveredAt = new Date().toISOString();
-                    this.mockOrders[orderIndex].deliveryTime = new Date().toISOString();
-                    break;
-                case 'cancelled':
-                    this.mockOrders[orderIndex].cancelledAt = new Date().toISOString();
-                    break;
+            const updates = { status, updated_at: new Date().toISOString(), ...additionalData };
+            if (status === 'delivered') {
+                updates.delivery_time = updates.delivery_time || new Date().toISOString();
             }
-            
-            return this.createMockResponse({
-                order: this.mockOrders[orderIndex],
-                message: `Order status updated to ${status}`
-            });
+            const { data, error } = await supabase.from('orders').update(updates).eq('id', orderId).select().single();
+            if (error) {
+                return this.createMockError(error.message || 'Failed to update order', error.code || 500);
+            }
+            return this.createMockResponse({ order: rowToOrder(data), message: `Order status updated to ${status}` });
         }
-        
-        // Real API call
-        return await this.patch(`${this.endpoint}/${orderId}/status`, { 
-            status, 
-            ...additionalData 
-        });
+        return await this.patch(`${this.endpoint}/${orderId}/status`, { status, ...additionalData });
     }
 
-    // Assign driver to order
     async assignDriver(orderId, driverId, driverInfo) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            const orderIndex = this.mockOrders.findIndex(o => o.id === orderId);
-            
-            if (orderIndex === -1) {
-                return this.createMockError('Order not found', 404);
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
             }
-            
-            this.mockOrders[orderIndex] = {
-                ...this.mockOrders[orderIndex],
-                driverId: driverId,
-                driverInfo: driverInfo,
+            const { data, error } = await supabase
+                .from('orders')
+                .update({
+                    driver_id: driverId,
+                    driver_info: driverInfo,
                 status: 'assigned',
-                assignedAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            return this.createMockResponse({
-                order: this.mockOrders[orderIndex],
-                message: 'Driver assigned successfully'
-            });
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', orderId)
+                .select()
+                .single();
+            if (error) {
+                return this.createMockError(error.message || 'Failed to assign driver', error.code || 500);
+            }
+            return this.createMockResponse({ order: rowToOrder(data), message: 'Driver assigned successfully' });
         }
-        
-        // Real API call
-        return await this.patch(`${this.endpoint}/${orderId}/assign-driver`, {
-            driverId,
-            driverInfo
-        });
+        return await this.patch(`${this.endpoint}/${orderId}/assign-driver`, { driverId, driverInfo });
     }
 
-    // Get order tracking information
     async getOrderTracking(orderId) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            const order = this.mockOrders.find(o => o.id === orderId);
-            
-            if (!order) {
-                return this.createMockError('Order not found', 404);
-            }
-            
-            // Generate mock tracking data
+        if (this.dataSource === 'supabase') {
+            const res = await this.getOrder(orderId);
+            if (!res.success || !res.data?.order) return res;
+            const order = res.data.order;
             const trackingSteps = [
-                {
-                    status: 'pending',
-                    label: 'Order Placed',
-                    timestamp: order.orderDate,
-                    completed: true,
-                    description: 'Your order has been received and is being processed'
-                },
-                {
-                    status: 'confirmed',
-                    label: 'Order Confirmed',
-                    timestamp: order.confirmedAt,
-                    completed: !!order.confirmedAt,
-                    description: 'Your order has been confirmed and assigned to a chef'
-                },
-                {
-                    status: 'preparing',
-                    label: 'Preparing',
-                    timestamp: order.preparingAt,
-                    completed: !!order.preparingAt,
-                    description: 'Chef is preparing your delicious pizza'
-                },
-                {
-                    status: 'on_delivery',
-                    label: 'On Delivery',
-                    timestamp: order.onDeliveryAt,
-                    completed: !!order.onDeliveryAt,
-                    description: 'Chef is on the way to your location'
-                },
-                {
-                    status: 'delivered',
-                    label: 'Delivered',
-                    timestamp: order.deliveredAt,
-                    completed: !!order.deliveredAt,
-                    description: 'Order delivered successfully!'
-                }
+                { status: 'pending', label: 'Order Placed', timestamp: order.orderDate, completed: true, description: 'Your order has been received and is being processed' },
+                { status: 'confirmed', label: 'Order Confirmed', timestamp: order.confirmedAt, completed: !!order.confirmedAt, description: 'Your order has been confirmed and assigned to a chef' },
+                { status: 'preparing', label: 'Preparing', timestamp: order.preparingAt, completed: !!order.preparingAt, description: 'Chef is preparing your delicious pizza' },
+                { status: 'on_delivery', label: 'On Delivery', timestamp: order.onDeliveryAt, completed: !!order.onDeliveryAt, description: 'Chef is on the way to your location' },
+                { status: 'delivered', label: 'Delivered', timestamp: order.deliveredAt, completed: !!order.deliveredAt, description: 'Order delivered successfully!' }
             ];
-            
             return this.createMockResponse({
-                orderId: orderId,
+                orderId,
                 currentStatus: order.status,
                 estimatedDelivery: order.estimatedDelivery,
-                trackingSteps: trackingSteps,
+                trackingSteps,
                 driverInfo: order.driverInfo,
                 lastUpdated: order.updatedAt
             });
         }
-        
-        // Real API call
         return await this.get(`${this.endpoint}/${orderId}/tracking`);
     }
 
-    // Cancel order
     async cancelOrder(orderId, reason = '') {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            const orderIndex = this.mockOrders.findIndex(o => o.id === orderId);
-            
-            if (orderIndex === -1) {
-                return this.createMockError('Order not found', 404);
-            }
-            
-            const order = this.mockOrders[orderIndex];
-            
-            // Check if order can be cancelled
+        if (this.dataSource === 'supabase') {
+            const res = await this.getOrder(orderId);
+            if (!res.success || !res.data?.order) return this.createMockError('Order not found', 404);
+            const order = res.data.order;
             if (['delivered', 'cancelled'].includes(order.status)) {
                 return this.createMockError('Order cannot be cancelled', 400);
             }
-            
-            this.mockOrders[orderIndex] = {
-                ...order,
-                status: 'cancelled',
-                cancelledAt: new Date().toISOString(),
-                cancellationReason: reason,
-                updatedAt: new Date().toISOString()
-            };
-            
-            return this.createMockResponse({
-                order: this.mockOrders[orderIndex],
-                message: 'Order cancelled successfully'
-            });
+            return this.updateOrderStatus(orderId, 'cancelled', { cancellation_reason: reason });
         }
-        
-        // Real API call
         return await this.patch(`${this.endpoint}/${orderId}/cancel`, { reason });
     }
 
-    // Get order statistics for a user
     async getOrderStats(userId, period = 'all') {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            let userOrders = this.mockOrders.filter(order => 
-                order.customerId === userId || order.customerId === 'guest_user'
-            );
-            
-            // Apply period filter
+        if (this.dataSource === 'supabase') {
+            const res = await this.getUserOrders(userId, { limit: 1000 });
+            if (!res.success) return res;
+            let userOrders = res.data.orders || [];
             if (period !== 'all') {
                 const now = new Date();
                 let startDate;
-                
-                switch (period) {
-                    case 'week':
-                        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                        break;
-                    case 'month':
-                        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                        break;
-                    case 'year':
-                        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-                        break;
-                    default:
-                        startDate = null;
-                }
-                
-                if (startDate) {
-                    userOrders = userOrders.filter(order => 
-                        new Date(order.orderDate) >= startDate
-                    );
-                }
+                if (period === 'week') startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                else if (period === 'month') startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                else if (period === 'year') startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+                if (startDate) userOrders = userOrders.filter((o) => new Date(o.orderDate) >= startDate);
             }
-            
             const stats = {
                 totalOrders: userOrders.length,
-                totalSpent: userOrders.reduce((sum, order) => sum + order.total, 0),
-                averageOrderValue: userOrders.length > 0 ? 
-                    userOrders.reduce((sum, order) => sum + order.total, 0) / userOrders.length : 0,
+                totalSpent: userOrders.reduce((sum, o) => sum + o.total, 0),
+                averageOrderValue: userOrders.length ? userOrders.reduce((sum, o) => sum + o.total, 0) / userOrders.length : 0,
                 favoriteItems: this.calculateFavoriteItems(userOrders),
                 ordersByStatus: {
-                    pending: userOrders.filter(o => o.status === 'pending').length,
-                    confirmed: userOrders.filter(o => o.status === 'confirmed').length,
-                    preparing: userOrders.filter(o => o.status === 'preparing').length,
-                    on_delivery: userOrders.filter(o => o.status === 'on_delivery').length,
-                    delivered: userOrders.filter(o => o.status === 'delivered').length,
-                    cancelled: userOrders.filter(o => o.status === 'cancelled').length
+                    pending: userOrders.filter((o) => o.status === 'pending').length,
+                    confirmed: userOrders.filter((o) => o.status === 'confirmed').length,
+                    preparing: userOrders.filter((o) => o.status === 'preparing').length,
+                    on_delivery: userOrders.filter((o) => o.status === 'on_delivery').length,
+                    delivered: userOrders.filter((o) => o.status === 'delivered').length,
+                    cancelled: userOrders.filter((o) => o.status === 'cancelled').length
                 },
-                period: period
+                period
             };
-            
             return this.createMockResponse({ stats });
         }
-        
-        // Real API call
         return await this.get(`${this.endpoint}/stats/${userId}`, { period });
     }
 
-    // Helper method to calculate favorite items
     calculateFavoriteItems(orders) {
         const itemCount = {};
-        
-        orders.forEach(order => {
-            order.items.forEach(item => {
+        (orders || []).forEach((order) => {
+            (order.items || []).forEach((item) => {
                 const key = item.name;
                 itemCount[key] = (itemCount[key] || 0) + item.quantity;
             });
         });
-        
         return Object.entries(itemCount)
-            .sort(([,a], [,b]) => b - a)
+            .sort(([, a], [, b]) => b - a)
             .slice(0, 5)
             .map(([name, count]) => ({ name, count }));
     }
 
-    // Get orders for driver (used in driver dashboard)
     async getDriverOrders(driverId, status = null) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
-            let driverOrders = this.mockOrders.filter(order => order.driverId === driverId);
-            
-            if (status) {
-                driverOrders = driverOrders.filter(order => order.status === status);
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
             }
-            
-            return this.createMockResponse({
-                orders: driverOrders,
-                total: driverOrders.length
-            });
+            let query = supabase.from('orders').select('*').eq('driver_id', driverId);
+            if (status) query = query.eq('status', status);
+            const { data: rows, error } = await query.order('order_date', { ascending: false });
+            if (error) {
+                return this.createMockError(error.message || 'Failed to fetch driver orders', error.code || 500);
+            }
+            const orders = (rows || []).map(rowToOrder);
+            return this.createMockResponse({ orders, total: orders.length });
         }
-        
-        // Real API call
         return await this.get(`${this.endpoint}/driver/${driverId}`, { status });
     }
 }
 
-// Export singleton instance
 export default new OrdersApiService();

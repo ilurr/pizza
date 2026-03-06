@@ -20,7 +20,7 @@ class ApiClient {
     constructor() {
         this.config = API_CONFIG;
         this.isInitialized = false;
-        
+
         // Service instances
         this.products = productsApi;
         this.orders = ordersApi;
@@ -44,14 +44,14 @@ class ApiClient {
         try {
             // Merge options with default config
             this.config = { ...this.config, ...options };
-            
+
             // Initialize notification system
             this.notifications.init();
-            
-            // Log current mode
-            console.log(`API Client initialized in ${this.config.USE_MOCK_API ? 'MOCK' : 'REAL'} mode`);
+
+            // Log current mode: data source (supabase | api) and legacy mock flag
+            console.log(`API Client initialized: DATA_SOURCE=${this.config.DATA_SOURCE || 'supabase'}, USE_MOCK_API=${this.config.USE_MOCK_API}`);
             console.log('Available services:', this.getAvailableServices());
-            
+
             this.isInitialized = true;
         } catch (error) {
             console.error('Failed to initialize API Client:', error);
@@ -75,26 +75,37 @@ class ApiClient {
     }
 
     /**
-     * Switch between mock and real API modes
+     * Switch between mock and real API modes (legacy)
      * @param {boolean} useMockApi - Whether to use mock API
      */
     setMockMode(useMockApi) {
         this.config.USE_MOCK_API = useMockApi;
-        
-        // Update all service instances
         this.products.useMockApi = useMockApi;
         this.orders.useMockApi = useMockApi;
         this.drivers.useMockApi = useMockApi;
         this.locations.useMockApi = useMockApi;
         this.notifications.useMockApi = useMockApi;
         this.promos.useMockApi = useMockApi;
-        
         console.log(`API mode switched to: ${useMockApi ? 'MOCK' : 'REAL'}`);
     }
 
     /**
-     * Get current API mode
+     * Switch data source: supabase (trial) or api (real backend). One env change; no code edits.
+     * @param {'supabase'|'api'} dataSource
      */
+    setDataSource(dataSource) {
+        this.config.DATA_SOURCE = dataSource;
+        this.orders.dataSource = dataSource;
+        console.log(`Data source switched to: ${dataSource}`);
+    }
+
+    /**
+     * Get current data source
+     */
+    getDataSource() {
+        return this.config.DATA_SOURCE || 'supabase';
+    }
+
     isMockMode() {
         return this.config.USE_MOCK_API;
     }
@@ -168,7 +179,7 @@ class ApiClient {
                 const startTime = Date.now();
                 const response = await test();
                 const endTime = Date.now();
-                
+
                 results.services[name] = {
                     status: response.success ? 'healthy' : 'error',
                     responseTime: endTime - startTime,
@@ -199,7 +210,7 @@ class ApiClient {
             config: {
                 useMockApi: this.config.USE_MOCK_API,
                 baseUrl: this.config.BASE_URL,
-                strapiUrl: this.config.STRAPI_URL
+                dataSource: this.config.DATA_SOURCE
             }
         };
     }
@@ -209,27 +220,27 @@ class ApiClient {
      */
     async reset() {
         console.log('Resetting API Client...');
-        
+
         // Reset service states if they have reset methods
         if (typeof this.drivers.resetDriver === 'function') {
             this.drivers.resetDriver();
         }
-        
+
         // Clear localStorage data in mock mode
         if (this.config.USE_MOCK_API && typeof localStorage !== 'undefined') {
             const keysToKeep = ['token', 'user', 'theme']; // Keep essential data
             const keysToRemove = [];
-            
+
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (!keysToKeep.includes(key)) {
                     keysToRemove.push(key);
                 }
             }
-            
-            keysToRemove.forEach(key => localStorage.removeItem(key));
+
+            keysToRemove.forEach((key) => localStorage.removeItem(key));
         }
-        
+
         console.log('API Client reset completed');
     }
 
@@ -238,7 +249,7 @@ class ApiClient {
      */
     async batch(operations) {
         const results = {};
-        
+
         for (const [name, operation] of Object.entries(operations)) {
             try {
                 results[name] = await operation();
@@ -246,7 +257,7 @@ class ApiClient {
                 results[name] = { success: false, error: error.message };
             }
         }
-        
+
         return results;
     }
 
@@ -258,28 +269,28 @@ class ApiClient {
             // Order shortcuts
             createOrder: (orderData) => this.orders.createOrder(orderData),
             trackOrder: (orderId) => this.orders.getOrderTracking(orderId),
-            
-            // Product shortcuts  
+
+            // Product shortcuts
             getMenu: (filters) => this.products.getMenu(filters),
             searchProducts: (query) => this.products.searchProducts(query),
-            
+
             // Location shortcuts
             checkCoverage: (location) => this.locations.checkCoverage(location),
             calculateDelivery: (location, orderValue) => this.locations.calculateDeliveryInfo(location, orderValue),
-            
+
             // Driver shortcuts
             getAvailableDrivers: (location) => this.drivers.getAvailableDrivers(location),
             updateDriverStatus: (driverId, status) => this.drivers.updateDriverStatus(driverId, status),
-            
+
             // Promo shortcuts
             getAvailablePromos: (userId, filters) => this.promos.getAvailablePromos(userId, filters),
             validatePromoCode: (code, validationData) => this.promos.validatePromoCode(code, validationData),
             applyPromoCode: (code, orderData) => this.promos.applyPromoCode(code, orderData),
-            
+
             // Notification shortcuts
             sendOrderNotification: (orderId, status, data) => this.notifications.sendOrderStatusNotification(orderId, status, data),
             sendPaymentNotification: (paymentData) => this.notifications.sendPaymentNotification(paymentData),
-            
+
             // Payment shortcuts
             createPayment: (paymentData) => this.payments.create(paymentData),
             getPaymentStatus: (externalId) => this.payments.getStatus(externalId)
@@ -296,30 +307,12 @@ if (typeof window !== 'undefined') {
 }
 
 // Named exports for individual services (backward compatibility)
-export {
-    productsApi,
-    ordersApi,  
-    driverApi,
-    locationApi,
-    notificationApi,
-    promoApi,
-    PaymentService,
-    BaseApiService,
-    API_CONFIG
-};
+export { productsApi, ordersApi, driverApi, locationApi, notificationApi, promoApi, PaymentService, BaseApiService, API_CONFIG };
 
 // Default export - main API client
 export default apiClient;
 
 // Convenience exports
-export const {
-    products,
-    orders,
-    drivers,
-    locations,
-    notifications,
-    promos,
-    payments
-} = apiClient;
+export const { products, orders, drivers, locations, notifications, promos, payments } = apiClient;
 
 export const { shortcuts } = apiClient;

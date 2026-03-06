@@ -66,7 +66,7 @@ So when the API is ready:
 ### 3.4 Auth (static users for dev)
 
 - **Before:** Static users were an inline array in `utils/auth.ts`.
-- **After:** Static users live in `src/data/authUsers.json`. `auth.ts` imports them. When you switch to Strapi (or another backend), you only change `auth.ts` to call the real login endpoint and map the response; the rest of the app keeps using the same `token` / `user` in localStorage and userStore.
+- **After:** Static users live in `src/data/authUsers.json`. `auth.ts` imports them. When using Supabase or real API, change `auth.ts` to call Supabase Auth (or your backend login) and map the response; the rest of the app keeps using the same `token` / `user` in localStorage and userStore.
 
 ---
 
@@ -92,11 +92,23 @@ Keeping these shapes in the real API (or adding a thin adapter in the service) k
 
 ---
 
+## 4a. Supabase trial (no custom API)
+
+- **Data source:** Set `VITE_DATA_SOURCE=supabase` for trial or `VITE_DATA_SOURCE=api` for real backend. One env switch; no code changes. See `.env.example`.
+- **Env:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (required when `VITE_DATA_SOURCE=supabase`).
+- **Orders (Phase 1):** OrdersApiService reads/writes Supabase `orders` table when data source is supabase. Same response shapes.
+- **Seed:** Run `npm run seed:supabase` after creating the `orders` table (see `scripts/supabase-schema-orders.sql`). Sample data from `src/data/orders.json` is inserted once.
+- **Products (Phase 2):** ProductsApiService reads Supabase `pizzas` + `beverages` tables when data source is supabase. Same response shapes.
+- **Seed products:** Run `npm run seed:supabase:products` after creating tables (see `scripts/supabase-schema-products.sql`).
+- **RLS:** For trial, RLS can be disabled or permissive; tighten for production.
+
+---
+
 ## 5. Checklist when real API is ready
 
-1. **Env:** Set `VITE_USE_MOCK_API=false`, set `VITE_API_BASE_URL` (and `VITE_STRAPI_URL` if using Strapi for auth).
+1. **Env:** Set `VITE_DATA_SOURCE=api`, set `VITE_API_BASE_URL`. For trial, use `VITE_DATA_SOURCE=supabase` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 2. **Backend:** Implement endpoints that match the response shapes above (see `src/services/api/README.md` and each `*ApiService.js`).
-3. **Auth:** In `utils/auth.ts`, replace static login with real login (e.g. Strapi `POST /auth/local`), keep same `localStorage` and userStore usage.
+3. **Auth:** In `utils/auth.ts`, replace static login with Supabase Auth or real login endpoint; keep same `localStorage` and userStore usage.
 4. **No view changes** for products, orders, drivers, location if you kept the facade and single gate; only API service internals (mock branch vs real HTTP) and env.
 
 ---

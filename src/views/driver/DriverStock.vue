@@ -15,12 +15,12 @@ const restockQuantity = ref(0);
 
 // Computed
 const criticalStockItems = computed(() => {
-    return stockItems.value.filter(item => item.currentStock <= item.criticalLevel);
+    return stockItems.value.filter((item) => item.currentStock <= item.criticalLevel);
 });
 
 const stockByCategory = computed(() => {
     const categories = {};
-    stockItems.value.forEach(item => {
+    stockItems.value.forEach((item) => {
         if (!categories[item.category]) {
             categories[item.category] = [];
         }
@@ -31,15 +31,17 @@ const stockByCategory = computed(() => {
 
 const totalStockValue = computed(() => {
     return stockItems.value.reduce((total, item) => {
-        return total + (item.currentStock * item.cost);
+        return total + item.currentStock * item.cost;
     }, 0);
 });
 
 const maxPizzasFromStock = computed(() => {
-    return Math.min(...stockItems.value.map(item => {
-        if (item.category === 'Equipment') return 999;
-        return Math.floor(item.currentStock / item.estimatedUsage);
-    }));
+    return Math.min(
+        ...stockItems.value.map((item) => {
+            if (item.category === 'Equipment') return 999;
+            return Math.floor(item.currentStock / item.estimatedUsage);
+        })
+    );
 });
 
 // Methods
@@ -62,20 +64,17 @@ const openRestockDialog = (item) => {
 
 const confirmRestock = () => {
     if (selectedRestockItem.value && restockQuantity.value > 0) {
-        const newStock = Math.min(
-            selectedRestockItem.value.currentStock + restockQuantity.value,
-            selectedRestockItem.value.maxCapacity
-        );
-        
+        const newStock = Math.min(selectedRestockItem.value.currentStock + restockQuantity.value, selectedRestockItem.value.maxCapacity);
+
         selectedRestockItem.value.currentStock = newStock;
-        
+
         toast.add({
             severity: 'success',
             summary: 'Stock Updated',
             detail: `${selectedRestockItem.value.name} restocked to ${newStock} ${selectedRestockItem.value.unit}`,
             life: 3000
         });
-        
+
         restockDialog.value = false;
         selectedRestockItem.value = null;
         restockQuantity.value = 0;
@@ -127,7 +126,7 @@ onMounted(() => {
             <div class="card">
                 <h3>Stock Management</h3>
                 <p class="text-600">Manage your mobile kitchen inventory</p>
-                
+
                 <div class="grid">
                     <div class="col-12 md:col-3">
                         <div class="card bg-blue-50 border-left-3 border-blue-500">
@@ -173,8 +172,8 @@ onMounted(() => {
                     <div>
                         <div class="font-medium">Low Stock Alert</div>
                         <div class="text-sm">
-                            {{ criticalStockItems.length }} item(s) need restocking: 
-                            {{ criticalStockItems.map(item => item.name).join(', ') }}
+                            {{ criticalStockItems.length }} item(s) need restocking:
+                            {{ criticalStockItems.map((item) => item.name).join(', ') }}
                         </div>
                     </div>
                 </div>
@@ -188,7 +187,7 @@ onMounted(() => {
                     <h5>{{ category }}</h5>
                     <Button label="Restock Category" outlined size="small" />
                 </div>
-                
+
                 <DataTable :value="items" responsiveLayout="scroll" class="p-datatable-sm">
                     <Column field="name" header="Item" style="min-width: 12rem">
                         <template #body="{ data }">
@@ -197,52 +196,35 @@ onMounted(() => {
                                     <div class="font-medium">{{ data.name }}</div>
                                     <small class="text-600">{{ formatCurrency(data.cost) }}/{{ data.unit }}</small>
                                 </div>
-                                <Tag v-if="data.currentStock <= data.criticalLevel" 
-                                     value="Low" 
-                                     severity="danger" 
-                                     size="small" />
+                                <Tag v-if="data.currentStock <= data.criticalLevel" value="Low" severity="danger" size="small" />
                             </div>
                         </template>
                     </Column>
-                    
+
                     <Column header="Current Stock" style="min-width: 10rem">
                         <template #body="{ data }">
                             <div class="flex align-items-center gap-2">
-                                <InputNumber 
-                                    v-model="data.currentStock" 
-                                    :min="0" 
-                                    :max="data.maxCapacity"
-                                    @input="updateStock(data, $event.value)"
-                                    size="small"
-                                    style="width: 4rem"
-                                />
+                                <InputNumber v-model="data.currentStock" :min="0" :max="data.maxCapacity" @input="updateStock(data, $event.value)" size="small" style="width: 4rem" />
                                 <span class="text-sm text-600">{{ data.unit }}</span>
                             </div>
                         </template>
                     </Column>
-                    
+
                     <Column header="Capacity" style="min-width: 8rem">
                         <template #body="{ data }">
                             <div class="text-center">
                                 <div class="text-sm font-medium">{{ data.currentStock }} / {{ data.maxCapacity }}</div>
-                                <ProgressBar 
-                                    :value="getStockPercentage(data)" 
-                                    :severity="getStockSeverity(data)"
-                                    style="height: 6px"
-                                    class="mt-1"
-                                />
+                                <ProgressBar :value="getStockPercentage(data)" :severity="getStockSeverity(data)" style="height: 6px" class="mt-1" />
                             </div>
                         </template>
                     </Column>
-                    
+
                     <Column header="Usage Rate" style="min-width: 8rem">
                         <template #body="{ data }">
-                            <div class="text-center text-sm">
-                                {{ data.estimatedUsage }} {{ data.unit }}/pizza
-                            </div>
+                            <div class="text-center text-sm">{{ data.estimatedUsage }} {{ data.unit }}/pizza</div>
                         </template>
                     </Column>
-                    
+
                     <Column header="Value" style="min-width: 8rem">
                         <template #body="{ data }">
                             <div class="text-center font-medium">
@@ -250,25 +232,12 @@ onMounted(() => {
                             </div>
                         </template>
                     </Column>
-                    
+
                     <Column header="Actions" style="min-width: 8rem">
                         <template #body="{ data }">
                             <div class="flex gap-1">
-                                <Button 
-                                    icon="pi pi-plus" 
-                                    severity="success"
-                                    outlined
-                                    size="small"
-                                    @click="openRestockDialog(data)"
-                                    v-tooltip.top="'Restock'"
-                                />
-                                <Button 
-                                    icon="pi pi-arrow-right-arrow-left" 
-                                    severity="info"
-                                    outlined
-                                    size="small"
-                                    v-tooltip.top="'Exchange'"
-                                />
+                                <Button icon="pi pi-plus" severity="success" outlined size="small" @click="openRestockDialog(data)" v-tooltip.top="'Restock'" />
+                                <Button icon="pi pi-arrow-right-arrow-left" severity="info" outlined size="small" v-tooltip.top="'Exchange'" />
                             </div>
                         </template>
                     </Column>
@@ -285,20 +254,13 @@ onMounted(() => {
                 <div class="text-lg font-semibold">{{ selectedRestockItem.name }}</div>
                 <small class="text-600">Current: {{ selectedRestockItem.currentStock }} {{ selectedRestockItem.unit }}</small>
             </div>
-            
+
             <div>
                 <label class="block text-900 font-medium mb-2">Restock Quantity</label>
-                <InputNumber 
-                    v-model="restockQuantity" 
-                    :min="1" 
-                    :max="selectedRestockItem.maxCapacity - selectedRestockItem.currentStock"
-                    fluid
-                />
-                <small class="text-600">
-                    Max capacity: {{ selectedRestockItem.maxCapacity }} {{ selectedRestockItem.unit }}
-                </small>
+                <InputNumber v-model="restockQuantity" :min="1" :max="selectedRestockItem.maxCapacity - selectedRestockItem.currentStock" fluid />
+                <small class="text-600"> Max capacity: {{ selectedRestockItem.maxCapacity }} {{ selectedRestockItem.unit }} </small>
             </div>
-            
+
             <div>
                 <label class="block text-900 font-medium mb-2">Cost Estimate</label>
                 <div class="text-lg font-semibold text-green-600">
@@ -306,13 +268,12 @@ onMounted(() => {
                 </div>
             </div>
         </div>
-        
+
         <template #footer>
             <Button label="Cancel" outlined @click="restockDialog = false" />
             <Button label="Confirm Restock" @click="confirmRestock" />
         </template>
     </Dialog>
-
 </template>
 
 <style scoped>

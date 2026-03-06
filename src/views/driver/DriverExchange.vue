@@ -63,15 +63,15 @@ const selectedTab = ref(0);
 
 // Computed
 const onlineDrivers = computed(() => {
-    return nearbyDrivers.value.filter(driver => driver.isOnline);
+    return nearbyDrivers.value.filter((driver) => driver.isOnline);
 });
 
 const pendingRequests = computed(() => {
-    return exchangeRequests.value.filter(req => req.status === 'pending');
+    return exchangeRequests.value.filter((req) => req.status === 'pending');
 });
 
 const sentRequests = computed(() => {
-    return exchangeRequests.value.filter(req => req.status === 'sent');
+    return exchangeRequests.value.filter((req) => req.status === 'sent');
 });
 
 // Methods
@@ -112,7 +112,7 @@ const submitExchangeRequest = () => {
     };
 
     exchangeRequests.value.push(newRequest);
-    
+
     toast.add({
         severity: 'success',
         summary: 'Request Sent',
@@ -124,7 +124,7 @@ const submitExchangeRequest = () => {
 };
 
 const acceptRequest = (requestId) => {
-    const request = exchangeRequests.value.find(req => req.id === requestId);
+    const request = exchangeRequests.value.find((req) => req.id === requestId);
     if (request) {
         request.status = 'accepted';
         toast.add({
@@ -137,7 +137,7 @@ const acceptRequest = (requestId) => {
 };
 
 const rejectRequest = (requestId) => {
-    const request = exchangeRequests.value.find(req => req.id === requestId);
+    const request = exchangeRequests.value.find((req) => req.id === requestId);
     if (request) {
         request.status = 'rejected';
         toast.add({
@@ -245,14 +245,7 @@ onMounted(() => {
                                                         <div class="font-medium">{{ item.name }}</div>
                                                         <small class="text-600">{{ item.available }} {{ item.unit }} available</small>
                                                     </div>
-                                                    <Button 
-                                                        label="Request" 
-                                                        icon="pi pi-arrow-right"
-                                                        @click="openExchangeDialog(driver, item)"
-                                                        size="small"
-                                                        outlined
-                                                        severity="info"
-                                                    />
+                                                    <Button label="Request" icon="pi pi-arrow-right" @click="openExchangeDialog(driver, item)" size="small" outlined severity="info" />
                                                 </div>
                                             </div>
                                         </div>
@@ -267,9 +260,7 @@ onMounted(() => {
                             <div class="flex align-items-center gap-2">
                                 <i class="pi pi-clock"></i>
                                 <span>Pending Requests</span>
-                                <Badge v-if="pendingRequests.length > 0" 
-                                       :value="pendingRequests.length" 
-                                       severity="warning" />
+                                <Badge v-if="pendingRequests.length > 0" :value="pendingRequests.length" severity="warning" />
                             </div>
                         </template>
 
@@ -321,20 +312,8 @@ onMounted(() => {
                                     </div>
 
                                     <div class="flex gap-2">
-                                        <Button 
-                                            label="Accept" 
-                                            icon="pi pi-check"
-                                            @click="acceptRequest(request.id)"
-                                            severity="success"
-                                            class="flex-1"
-                                        />
-                                        <Button 
-                                            label="Reject" 
-                                            icon="pi pi-times"
-                                            @click="rejectRequest(request.id)"
-                                            severity="danger"
-                                            outlined
-                                        />
+                                        <Button label="Accept" icon="pi pi-check" @click="acceptRequest(request.id)" severity="success" class="flex-1" />
+                                        <Button label="Reject" icon="pi pi-times" @click="rejectRequest(request.id)" severity="danger" outlined />
                                     </div>
                                 </div>
                             </div>
@@ -346,9 +325,7 @@ onMounted(() => {
                             <div class="flex align-items-center gap-2">
                                 <i class="pi pi-send"></i>
                                 <span>My Requests</span>
-                                <Badge v-if="sentRequests.length > 0" 
-                                       :value="sentRequests.length" 
-                                       severity="info" />
+                                <Badge v-if="sentRequests.length > 0" :value="sentRequests.length" severity="info" />
                             </div>
                         </template>
 
@@ -370,12 +347,8 @@ onMounted(() => {
                             <Column header="Exchange" style="min-width: 15rem">
                                 <template #body="{ data }">
                                     <div class="text-sm">
-                                        <div class="mb-1">
-                                            <span class="text-600">Want:</span> {{ data.requestedQuantity }} {{ data.requestedUnit }} {{ data.requestedItem }}
-                                        </div>
-                                        <div>
-                                            <span class="text-600">Offer:</span> {{ data.offeredQuantity }} {{ data.offeredUnit }} {{ data.offeredItem }}
-                                        </div>
+                                        <div class="mb-1"><span class="text-600">Want:</span> {{ data.requestedQuantity }} {{ data.requestedUnit }} {{ data.requestedItem }}</div>
+                                        <div><span class="text-600">Offer:</span> {{ data.offeredQuantity }} {{ data.offeredUnit }} {{ data.offeredItem }}</div>
                                     </div>
                                 </template>
                             </Column>
@@ -416,21 +389,14 @@ onMounted(() => {
                         <small class="text-600">{{ selectedDriver.distance }}km away</small>
                     </div>
                 </div>
-                <div class="text-sm">
-                    <span class="text-600">Requesting:</span> {{ selectedDriverItem.name }} ({{ selectedDriverItem.available }} {{ selectedDriverItem.unit }} available)
-                </div>
+                <div class="text-sm"><span class="text-600">Requesting:</span> {{ selectedDriverItem.name }} ({{ selectedDriverItem.available }} {{ selectedDriverItem.unit }} available)</div>
             </div>
 
             <!-- Request Details -->
             <div>
                 <label class="block text-900 font-medium mb-2">How much do you need?</label>
                 <div class="flex align-items-center gap-2">
-                    <InputNumber 
-                        v-model="requestedQuantity" 
-                        :min="1" 
-                        :max="selectedDriverItem.available"
-                        fluid
-                    />
+                    <InputNumber v-model="requestedQuantity" :min="1" :max="selectedDriverItem.available" fluid />
                     <span class="text-600">{{ selectedDriverItem.unit }}</span>
                 </div>
             </div>
@@ -438,13 +404,7 @@ onMounted(() => {
             <!-- Offer -->
             <div>
                 <label class="block text-900 font-medium mb-2">What will you offer in return?</label>
-                <Dropdown 
-                    v-model="selectedMyItem" 
-                    :options="myStock" 
-                    optionLabel="name" 
-                    placeholder="Select item to offer"
-                    fluid
-                >
+                <Dropdown v-model="selectedMyItem" :options="myStock" optionLabel="name" placeholder="Select item to offer" fluid>
                     <template #option="{ option }">
                         <div class="flex justify-content-between align-items-center w-full">
                             <span>{{ option.name }}</span>
@@ -457,12 +417,7 @@ onMounted(() => {
             <div v-if="selectedMyItem">
                 <label class="block text-900 font-medium mb-2">Offer quantity</label>
                 <div class="flex align-items-center gap-2">
-                    <InputNumber 
-                        v-model="offeredQuantity" 
-                        :min="1" 
-                        :max="selectedMyItem.available"
-                        fluid
-                    />
+                    <InputNumber v-model="offeredQuantity" :min="1" :max="selectedMyItem.available" fluid />
                     <span class="text-600">{{ selectedMyItem.unit }}</span>
                 </div>
             </div>
@@ -470,24 +425,17 @@ onMounted(() => {
             <!-- Meeting Point Preview -->
             <div v-if="selectedMyItem" class="p-3 bg-green-50 border-round">
                 <div class="text-sm text-600 mb-2">Exchange Summary:</div>
-                <div class="font-medium">
-                    You give {{ offeredQuantity }} {{ selectedMyItem.unit }} {{ selectedMyItem.name }}
-                </div>
-                <div class="font-medium">
-                    You get {{ requestedQuantity }} {{ selectedDriverItem.unit }} {{ selectedDriverItem.name }}
-                </div>
-                <div class="text-sm text-600 mt-2">
-                    Meeting point will be calculated automatically
-                </div>
+                <div class="font-medium">You give {{ offeredQuantity }} {{ selectedMyItem.unit }} {{ selectedMyItem.name }}</div>
+                <div class="font-medium">You get {{ requestedQuantity }} {{ selectedDriverItem.unit }} {{ selectedDriverItem.name }}</div>
+                <div class="text-sm text-600 mt-2">Meeting point will be calculated automatically</div>
             </div>
         </div>
-        
+
         <template #footer>
             <Button label="Cancel" outlined @click="exchangeDialog = false" />
             <Button label="Send Request" @click="submitExchangeRequest" />
         </template>
     </Dialog>
-
 </template>
 
 <style scoped>

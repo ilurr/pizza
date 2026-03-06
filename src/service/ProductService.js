@@ -1,19 +1,19 @@
 import api from '@/services/api/index.js';
-import pizzasData from '@/data/pizzas.json';
-import beveragesData from '@/data/beverages.json';
-import ordersData from '@/data/orders.json';
 
 export const ProductService = {
     getPizzasData() {
-        return pizzasData;
+        // Local mock data removed (migrated to Supabase). Keep method for compatibility.
+        return [];
     },
 
     getBeveragesData() {
-        return beveragesData;
+        // Local mock data removed (migrated to Supabase). Keep method for compatibility.
+        return [];
     },
 
     getOrdersData() {
-        return ordersData;
+        // Local mock data removed (migrated to Supabase). Keep method for compatibility.
+        return [];
     },
 
     getProductsData() {
@@ -1240,58 +1240,50 @@ export const ProductService = {
     // Pizza-specific methods
     async getPizzas() {
         const res = await api.products.getPizzas();
-        return res && res.success ? res.data.pizzas : this.getPizzasData();
+        return res && res.success ? res.data.pizzas : [];
     },
 
     getPizzaById(id) {
-        const pizzas = this.getPizzasData();
-        return Promise.resolve(pizzas.find(pizza => pizza.id === id));
+        return this.getPizzas().then((pizzas) => pizzas.find((pizza) => pizza.id === id));
     },
 
     getPizzasByCategory(category) {
-        const pizzas = this.getPizzasData();
-        return Promise.resolve(pizzas.filter(pizza => pizza.category === category));
+        return this.getPizzas().then((pizzas) => pizzas.filter((pizza) => pizza.category === category));
     },
 
     getPopularPizzas() {
-        const pizzas = this.getPizzasData();
-        return Promise.resolve(pizzas.filter(pizza => pizza.popular));
+        return this.getPizzas().then((pizzas) => pizzas.filter((pizza) => pizza.popular));
     },
 
     async getBeverages() {
         const res = await api.products.getBeverages();
-        return res && res.success ? res.data.beverages : this.getBeveragesData();
+        return res && res.success ? res.data.beverages : [];
     },
 
     getBeverageById(id) {
-        const beverages = this.getBeveragesData();
-        return Promise.resolve(beverages.find(beverage => beverage.id === id));
+        return this.getBeverages().then((beverages) => beverages.find((beverage) => beverage.id === id));
     },
 
     getBeveragesByCategory(category) {
-        const beverages = this.getBeveragesData();
-        return Promise.resolve(beverages.filter(beverage => beverage.category === category));
+        return this.getBeverages().then((beverages) => beverages.filter((beverage) => beverage.category === category));
     },
 
     async getOrders(userId = 'guest_user') {
         const id = String(userId ?? 'guest_user');
         const res = await api.orders.getUserOrders(id);
-        return res && res.success ? res.data.orders : this.getOrdersData();
+        return res && res.success ? res.data.orders : [];
     },
 
     getOrderById(id) {
-        const orders = this.getOrdersData();
-        return Promise.resolve(orders.find(order => order.id === id));
+        return this.getOrders().then((orders) => orders.find((order) => order.id === id));
     },
 
     getOrdersByCustomer(customerId) {
-        const orders = this.getOrdersData();
-        return Promise.resolve(orders.filter(order => order.customerId === customerId));
+        return this.getOrders().then((orders) => orders.filter((order) => order.customerId === customerId));
     },
 
     getOrdersByStatus(status) {
-        const orders = this.getOrdersData();
-        return Promise.resolve(orders.filter(order => order.status === status));
+        return this.getOrders().then((orders) => orders.filter((order) => order.status === status));
     },
 
     // Menu methods (combined pizzas and beverages)
@@ -1300,18 +1292,13 @@ export const ProductService = {
         if (res && res.success && res.data) {
             return { pizzas: res.data.pizzas || [], beverages: res.data.beverages || [] };
         }
-        return {
-            pizzas: this.getPizzasData(),
-            beverages: this.getBeveragesData()
-        };
+        return { pizzas: [], beverages: [] };
     },
 
     getAvailableMenu() {
-        const pizzas = this.getPizzasData().filter(pizza => pizza.available);
-        const beverages = this.getBeveragesData().filter(beverage => beverage.available);
-        return Promise.resolve({
-            pizzas: pizzas,
-            beverages: beverages
-        });
+        return this.getMenu().then(({ pizzas, beverages }) => ({
+            pizzas: (pizzas || []).filter((p) => p.available),
+            beverages: (beverages || []).filter((b) => b.available)
+        }));
     }
 };

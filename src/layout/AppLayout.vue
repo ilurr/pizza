@@ -53,7 +53,7 @@ function isOutsideClicked(event) {
 
     // Check if sidebar was clicked
     const sidebarClicked = sidebarEl && (sidebarEl.isSameNode(event.target) || sidebarEl.contains(event.target));
-    
+
     // Check if menu button was clicked (only if it exists)
     const topbarClicked = topbarEl && (topbarEl.isSameNode(event.target) || topbarEl.contains(event.target));
 
@@ -63,7 +63,7 @@ function isOutsideClicked(event) {
 
 <template>
     <div class="layout-wrapper" :class="containerClass">
-        <app-topbar :admin=true></app-topbar>
+        <app-topbar :admin="true"></app-topbar>
         <app-sidebar></app-sidebar>
         <div class="layout-main-container">
             <div class="layout-main">

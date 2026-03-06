@@ -132,20 +132,20 @@ const formatDate = (dateString) => {
 
 const getTransactionIcon = (type) => {
     const icons = {
-        'delivery': 'pi pi-truck',
-        'bonus': 'pi pi-star',
-        'expense': 'pi pi-minus-circle',
-        'tip': 'pi pi-heart'
+        delivery: 'pi pi-truck',
+        bonus: 'pi pi-star',
+        expense: 'pi pi-minus-circle',
+        tip: 'pi pi-heart'
     };
     return icons[type] || 'pi pi-circle';
 };
 
 const getTransactionColor = (type) => {
     const colors = {
-        'delivery': 'success',
-        'bonus': 'warn',
-        'expense': 'danger',
-        'tip': 'info'
+        delivery: 'success',
+        bonus: 'warn',
+        expense: 'danger',
+        tip: 'info'
     };
     return colors[type] || 'info';
 };
@@ -234,11 +234,16 @@ watch(selectedPeriod, () => {
                         <h3>Earnings Dashboard</h3>
                         <p class="text-600 mb-0">Track your income and expenses</p>
                     </div>
-                    <SelectButton v-model="selectedPeriod" :options="[
-                        { label: 'Today', value: 'today' },
-                        { label: 'This Week', value: 'week' },
-                        { label: 'This Month', value: 'month' }
-                    ]" optionLabel="label" optionValue="value" />
+                    <SelectButton
+                        v-model="selectedPeriod"
+                        :options="[
+                            { label: 'Today', value: 'today' },
+                            { label: 'This Week', value: 'week' },
+                            { label: 'This Month', value: 'month' }
+                        ]"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
                 </div>
             </div>
         </div>
@@ -284,16 +289,12 @@ watch(selectedPeriod, () => {
                     <Divider />
                     <div class="flex justify-content-between align-items-center">
                         <span class="text-600">Tip Rate</span>
-                        <span class="font-bold">
-                            {{ Math.round((currentEarnings.tips / currentEarnings.grossEarnings) * 100) }}%
-                        </span>
+                        <span class="font-bold"> {{ Math.round((currentEarnings.tips / currentEarnings.grossEarnings) * 100) }}% </span>
                     </div>
                     <Divider />
                     <div class="flex justify-content-between align-items-center">
                         <span class="text-600">Profit Margin</span>
-                        <span class="font-bold text-green-600">
-                            {{ Math.round((currentEarnings.netEarnings / currentEarnings.grossEarnings) * 100) }}%
-                        </span>
+                        <span class="font-bold text-green-600"> {{ Math.round((currentEarnings.netEarnings / currentEarnings.grossEarnings) * 100) }}% </span>
                     </div>
                 </div>
             </div>
@@ -311,7 +312,12 @@ watch(selectedPeriod, () => {
                     <Column header="Type" style="min-width: 8rem">
                         <template #body="{ data }">
                             <div class="flex align-items-center gap-2">
-                                <i :class="[getTransactionIcon(data.type), `text-${getTransactionColor(data.type) === 'success' ? 'green' : getTransactionColor(data.type) === 'danger' ? 'red' : getTransactionColor(data.type) === 'warn' ? 'orange' : 'blue'}-500`]"></i>
+                                <i
+                                    :class="[
+                                        getTransactionIcon(data.type),
+                                        `text-${getTransactionColor(data.type) === 'success' ? 'green' : getTransactionColor(data.type) === 'danger' ? 'red' : getTransactionColor(data.type) === 'warn' ? 'orange' : 'blue'}-500`
+                                    ]"
+                                ></i>
                                 <span class="font-medium capitalize">{{ data.type }}</span>
                             </div>
                         </template>
@@ -323,9 +329,7 @@ watch(selectedPeriod, () => {
                                 <div class="font-medium">
                                     {{ data.orderId || data.description }}
                                 </div>
-                                <small v-if="data.customerTip > 0" class="text-600">
-                                    + {{ formatCurrency(data.customerTip) }} tip
-                                </small>
+                                <small v-if="data.customerTip > 0" class="text-600"> + {{ formatCurrency(data.customerTip) }} tip </small>
                             </div>
                         </template>
                     </Column>
@@ -370,8 +374,7 @@ watch(selectedPeriod, () => {
                             <i class="pi pi-box text-orange-500"></i>
                             <span>Ingredient Restocking</span>
                         </div>
-                        <span class="font-bold text-orange-600">{{ formatCurrency(currentEarnings.expenses * 0.3)
-                            }}</span>
+                        <span class="font-bold text-orange-600">{{ formatCurrency(currentEarnings.expenses * 0.3) }}</span>
                     </div>
                     <Divider />
                     <div class="flex justify-content-between align-items-center">
@@ -397,8 +400,7 @@ watch(selectedPeriod, () => {
                     <div>
                         <div class="flex justify-content-between align-items-center mb-2">
                             <span class="text-600">Earnings Target</span>
-                            <span class="font-bold">{{ formatCurrency(currentEarnings.grossEarnings) }}/{{
-                                formatCurrency(200000) }}</span>
+                            <span class="font-bold">{{ formatCurrency(currentEarnings.grossEarnings) }}/{{ formatCurrency(200000) }}</span>
                         </div>
                         <ProgressBar :value="(currentEarnings.grossEarnings / 200000) * 100" />
                     </div>

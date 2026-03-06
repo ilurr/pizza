@@ -5,10 +5,15 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "lint": "eslint --fix . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+        "lint": "eslint --fix . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+        "seed:supabase": "node scripts/seed-supabase.mjs",
+        "seed:supabase:products": "node scripts/seed-supabase-products.mjs",
+        "seed:supabase:auth": "node scripts/seed-supabase-auth.mjs",
+        "seed:supabase:coverage": "node scripts/seed-supabase-coverage.mjs"
     },
     "dependencies": {
         "@primeuix/themes": "^1.0.0",
+        "@supabase/supabase-js": "^2.45.0",
         "@vuepic/vue-datepicker": "^11.0.2",
         "axios": "^1.10.0",
         "chart.js": "3.3.2",

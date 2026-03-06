@@ -29,16 +29,16 @@ export class DriverApiService extends BaseApiService {
     async getDriverProfile(driverId) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const driver = this.mockDrivers.find(d => d.id === driverId);
-            
+
+            const driver = this.mockDrivers.find((d) => d.id === driverId);
+
             if (!driver) {
                 return this.createMockError('Driver not found', 404);
             }
-            
+
             return this.createMockResponse({ driver });
         }
-        
+
         return await this.get(`${this.endpoint}/${driverId}`);
     }
 
@@ -46,25 +46,25 @@ export class DriverApiService extends BaseApiService {
     async updateDriverStatus(driverId, statusData) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const driverIndex = this.mockDrivers.findIndex(d => d.id === driverId);
-            
+
+            const driverIndex = this.mockDrivers.findIndex((d) => d.id === driverId);
+
             if (driverIndex === -1) {
                 return this.createMockError('Driver not found', 404);
             }
-            
+
             this.mockDrivers[driverIndex] = {
                 ...this.mockDrivers[driverIndex],
                 ...statusData,
                 updatedAt: new Date().toISOString()
             };
-            
+
             return this.createMockResponse({
                 driver: this.mockDrivers[driverIndex],
                 message: 'Driver status updated successfully'
             });
         }
-        
+
         return await this.patch(`${this.endpoint}/${driverId}/status`, statusData);
     }
 
@@ -72,25 +72,25 @@ export class DriverApiService extends BaseApiService {
     async updateDriverLocation(driverId, location) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const driverIndex = this.mockDrivers.findIndex(d => d.id === driverId);
-            
+
+            const driverIndex = this.mockDrivers.findIndex((d) => d.id === driverId);
+
             if (driverIndex === -1) {
                 return this.createMockError('Driver not found', 404);
             }
-            
+
             this.mockDrivers[driverIndex].currentLocation = {
                 ...location,
                 timestamp: new Date().toISOString()
             };
             this.mockDrivers[driverIndex].updatedAt = new Date().toISOString();
-            
+
             return this.createMockResponse({
                 location: this.mockDrivers[driverIndex].currentLocation,
                 message: 'Location updated successfully'
             });
         }
-        
+
         return await this.patch(`${this.endpoint}/${driverId}/location`, { location });
     }
 
@@ -98,40 +98,28 @@ export class DriverApiService extends BaseApiService {
     async getDriverStock(driverId, filters = {}) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             let filteredStock = [...this.mockStock];
-            
+
             // Apply filters
             if (filters.category) {
-                filteredStock = filteredStock.filter(item => 
-                    item.category.toLowerCase() === filters.category.toLowerCase()
-                );
+                filteredStock = filteredStock.filter((item) => item.category.toLowerCase() === filters.category.toLowerCase());
             }
-            
+
             if (filters.critical) {
-                filteredStock = filteredStock.filter(item => 
-                    item.currentStock <= item.criticalLevel
-                );
+                filteredStock = filteredStock.filter((item) => item.currentStock <= item.criticalLevel);
             }
-            
+
             if (filters.lowStock) {
-                filteredStock = filteredStock.filter(item => 
-                    item.currentStock <= item.maxCapacity * 0.3
-                );
+                filteredStock = filteredStock.filter((item) => item.currentStock <= item.maxCapacity * 0.3);
             }
-            
+
             // Calculate stock metrics
             const totalItems = filteredStock.length;
-            const criticalItems = filteredStock.filter(item => 
-                item.currentStock <= item.criticalLevel
-            ).length;
-            const lowStockItems = filteredStock.filter(item => 
-                item.currentStock <= item.maxCapacity * 0.3
-            ).length;
-            const totalValue = filteredStock.reduce((sum, item) => 
-                sum + (item.currentStock * item.cost), 0
-            );
-            
+            const criticalItems = filteredStock.filter((item) => item.currentStock <= item.criticalLevel).length;
+            const lowStockItems = filteredStock.filter((item) => item.currentStock <= item.maxCapacity * 0.3).length;
+            const totalValue = filteredStock.reduce((sum, item) => sum + item.currentStock * item.cost, 0);
+
             return this.createMockResponse({
                 stock: filteredStock,
                 metrics: {
@@ -139,13 +127,11 @@ export class DriverApiService extends BaseApiService {
                     criticalItems,
                     lowStockItems,
                     totalValue,
-                    capacityUtilization: filteredStock.reduce((sum, item) => 
-                        sum + (item.currentStock / item.maxCapacity), 0
-                    ) / filteredStock.length
+                    capacityUtilization: filteredStock.reduce((sum, item) => sum + item.currentStock / item.maxCapacity, 0) / filteredStock.length
                 }
             });
         }
-        
+
         return await this.get(`${this.endpoint}/${driverId}/stock`, filters);
     }
 
@@ -153,31 +139,28 @@ export class DriverApiService extends BaseApiService {
     async updateStock(driverId, stockUpdates) {
         if (this.useMockApi) {
             await this.mockDelay(1500); // Simulate processing time
-            
+
             const updatedItems = [];
-            
+
             for (const update of stockUpdates) {
-                const itemIndex = this.mockStock.findIndex(item => item.id === update.itemId);
-                
+                const itemIndex = this.mockStock.findIndex((item) => item.id === update.itemId);
+
                 if (itemIndex !== -1) {
-                    const newStock = Math.min(
-                        this.mockStock[itemIndex].currentStock + update.quantity,
-                        this.mockStock[itemIndex].maxCapacity
-                    );
-                    
+                    const newStock = Math.min(this.mockStock[itemIndex].currentStock + update.quantity, this.mockStock[itemIndex].maxCapacity);
+
                     this.mockStock[itemIndex].currentStock = newStock;
                     this.mockStock[itemIndex].lastRestocked = new Date().toISOString();
-                    
+
                     updatedItems.push(this.mockStock[itemIndex]);
                 }
             }
-            
+
             return this.createMockResponse({
                 updatedItems,
                 message: `Successfully restocked ${updatedItems.length} items`
             });
         }
-        
+
         return await this.patch(`${this.endpoint}/${driverId}/stock`, { updates: stockUpdates });
     }
 
@@ -185,33 +168,27 @@ export class DriverApiService extends BaseApiService {
     async getDriverEarnings(driverId, period = 'today', filters = {}) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const earnings = this.mockEarnings[period];
-            
+
             if (!earnings) {
                 return this.createMockError('Invalid period specified', 400);
             }
-            
+
             // Get recent transactions for the period
-            let transactions = this.mockTransactions.filter(t => t.driverId === driverId);
-            
+            let transactions = this.mockTransactions.filter((t) => t.driverId === driverId);
+
             if (period === 'today') {
                 const today = new Date().toDateString();
-                transactions = transactions.filter(t => 
-                    new Date(t.date).toDateString() === today
-                );
+                transactions = transactions.filter((t) => new Date(t.date).toDateString() === today);
             } else if (period === 'week') {
                 const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-                transactions = transactions.filter(t => 
-                    new Date(t.date) >= weekAgo
-                );
+                transactions = transactions.filter((t) => new Date(t.date) >= weekAgo);
             } else if (period === 'month') {
                 const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-                transactions = transactions.filter(t => 
-                    new Date(t.date) >= monthAgo
-                );
+                transactions = transactions.filter((t) => new Date(t.date) >= monthAgo);
             }
-            
+
             return this.createMockResponse({
                 earnings: earnings,
                 transactions: transactions.slice(0, 10), // Recent 10 transactions
@@ -219,7 +196,7 @@ export class DriverApiService extends BaseApiService {
                 generatedAt: new Date().toISOString()
             });
         }
-        
+
         return await this.get(`${this.endpoint}/${driverId}/earnings`, { period, ...filters });
     }
 
@@ -227,7 +204,7 @@ export class DriverApiService extends BaseApiService {
     async addTransaction(driverId, transactionData) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const newTransaction = {
                 id: `TXN${Date.now()}`,
                 driverId: driverId,
@@ -235,15 +212,15 @@ export class DriverApiService extends BaseApiService {
                 status: 'completed',
                 ...transactionData
             };
-            
+
             this.mockTransactions.unshift(newTransaction);
-            
+
             return this.createMockResponse({
                 transaction: newTransaction,
                 message: 'Transaction recorded successfully'
             });
         }
-        
+
         return await this.post(`${this.endpoint}/${driverId}/transactions`, transactionData);
     }
 
@@ -251,37 +228,28 @@ export class DriverApiService extends BaseApiService {
     async getAvailableDrivers(location, radius = 10) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const availableDrivers = this.mockDrivers.filter(driver => {
+
+            const availableDrivers = this.mockDrivers.filter((driver) => {
                 if (!driver.isOnline || !driver.isAvailable) return false;
-                
+
                 // Calculate distance from location
-                const distance = this.calculateDistance(
-                    location.lat, location.lng,
-                    driver.currentLocation.lat, driver.currentLocation.lng
-                );
-                
+                const distance = this.calculateDistance(location.lat, location.lng, driver.currentLocation.lat, driver.currentLocation.lng);
+
                 return distance <= radius;
             });
-            
+
             // Sort by distance and rating
             availableDrivers.sort((a, b) => {
-                const distanceA = this.calculateDistance(
-                    location.lat, location.lng,
-                    a.currentLocation.lat, a.currentLocation.lng
-                );
-                const distanceB = this.calculateDistance(
-                    location.lat, location.lng,
-                    b.currentLocation.lat, b.currentLocation.lng
-                );
-                
+                const distanceA = this.calculateDistance(location.lat, location.lng, a.currentLocation.lat, a.currentLocation.lng);
+                const distanceB = this.calculateDistance(location.lat, location.lng, b.currentLocation.lat, b.currentLocation.lng);
+
                 // Primary sort: distance, secondary sort: rating
                 if (distanceA !== distanceB) {
                     return distanceA - distanceB;
                 }
                 return b.rating - a.rating;
             });
-            
+
             return this.createMockResponse({
                 drivers: availableDrivers,
                 searchLocation: location,
@@ -289,11 +257,11 @@ export class DriverApiService extends BaseApiService {
                 total: availableDrivers.length
             });
         }
-        
-        return await this.get(`${this.endpoint}/available`, { 
-            lat: location.lat, 
-            lng: location.lng, 
-            radius 
+
+        return await this.get(`${this.endpoint}/available`, {
+            lat: location.lat,
+            lng: location.lng,
+            radius
         });
     }
 
@@ -301,15 +269,15 @@ export class DriverApiService extends BaseApiService {
     async getDriverStats(driverId, period = 'month') {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const driver = this.mockDrivers.find(d => d.id === driverId);
+
+            const driver = this.mockDrivers.find((d) => d.id === driverId);
             if (!driver) {
                 return this.createMockError('Driver not found', 404);
             }
-            
+
             const earnings = this.mockEarnings[period];
-            const transactions = this.mockTransactions.filter(t => t.driverId === driverId);
-            
+            const transactions = this.mockTransactions.filter((t) => t.driverId === driverId);
+
             const stats = {
                 profile: {
                     name: driver.name,
@@ -320,29 +288,26 @@ export class DriverApiService extends BaseApiService {
                 performance: {
                     deliveries: earnings.deliveries,
                     earnings: earnings.netEarnings,
-                    averageEarningsPerDelivery: earnings.deliveries > 0 ? 
-                        earnings.netEarnings / earnings.deliveries : 0,
+                    averageEarningsPerDelivery: earnings.deliveries > 0 ? earnings.netEarnings / earnings.deliveries : 0,
                     completionRate: 98.5, // Mock data
                     averageDeliveryTime: 25 // minutes
                 },
                 period: period,
                 lastUpdated: new Date().toISOString()
             };
-            
+
             return this.createMockResponse({ stats });
         }
-        
+
         return await this.get(`${this.endpoint}/${driverId}/stats`, { period });
     }
 
     // Helper method to calculate distance between two points
     calculateDistance(lat1, lng1, lat2, lng2) {
         const R = 6371; // Earth's radius in km
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLng = (lng2 - lng1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
@@ -351,22 +316,22 @@ export class DriverApiService extends BaseApiService {
     async getNearbyDrivers(driverId, radius = 15) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const currentDriver = this.mockDrivers.find(d => d.id === driverId);
+
+            const currentDriver = this.mockDrivers.find((d) => d.id === driverId);
             if (!currentDriver) {
                 return this.createMockError('Driver not found', 404);
             }
-            
+
             // Mock additional drivers for exchange from central data
             const mockNearbyDrivers = JSON.parse(JSON.stringify(driverNearbyDriversData));
-            
+
             return this.createMockResponse({
                 nearbyDrivers: mockNearbyDrivers,
                 searchRadius: radius,
                 total: mockNearbyDrivers.length
             });
         }
-        
+
         return await this.get(`${this.endpoint}/${driverId}/nearby`, { radius });
     }
 
@@ -374,7 +339,7 @@ export class DriverApiService extends BaseApiService {
     async createStockExchange(driverId, exchangeData) {
         if (this.useMockApi) {
             await this.mockDelay(1000);
-            
+
             const exchangeRequest = {
                 id: `EXC${Date.now()}`,
                 requesterId: driverId,
@@ -386,13 +351,13 @@ export class DriverApiService extends BaseApiService {
                 createdAt: new Date().toISOString(),
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
             };
-            
+
             return this.createMockResponse({
                 exchange: exchangeRequest,
                 message: 'Exchange request sent successfully'
             });
         }
-        
+
         return await this.post(`${this.endpoint}/${driverId}/exchanges`, exchangeData);
     }
 }

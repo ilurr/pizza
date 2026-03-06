@@ -23,7 +23,7 @@ const adminModel = ref([
     }
 ]);
 
-// Driver menu structure  
+// Driver menu structure
 const driverModel = ref([
     {
         label: 'Operations',

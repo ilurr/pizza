@@ -14,13 +14,13 @@ export const useCartStore = defineStore('cart', {
 
         totalPrice: (state) => {
             return state.items.reduce((total, item) => {
-                return total + (item.price * item.quantity);
+                return total + item.price * item.quantity;
             }, 0);
         },
 
         formattedTotalPrice: (state) => {
             const total = state.items.reduce((total, item) => {
-                return total + (item.price * item.quantity);
+                return total + item.price * item.quantity;
             }, 0);
             const formatted = new Intl.NumberFormat('id-ID', {
                 style: 'currency',
@@ -40,7 +40,7 @@ export const useCartStore = defineStore('cart', {
 
         finalTotal: (state) => {
             const subtotal = state.items.reduce((total, item) => {
-                return total + (item.price * item.quantity);
+                return total + item.price * item.quantity;
             }, 0);
             const discount = state.promoDiscount?.amount || 0;
             return Math.max(0, subtotal - discount);
@@ -48,7 +48,7 @@ export const useCartStore = defineStore('cart', {
 
         formattedFinalTotal: (state) => {
             const subtotal = state.items.reduce((total, item) => {
-                return total + (item.price * item.quantity);
+                return total + item.price * item.quantity;
             }, 0);
             const discount = state.promoDiscount?.amount || 0;
             const finalTotal = Math.max(0, subtotal - discount);
@@ -74,7 +74,7 @@ export const useCartStore = defineStore('cart', {
 
         cartCategories: (state) => {
             const categories = new Set();
-            state.items.forEach(item => {
+            state.items.forEach((item) => {
                 if (item.category) {
                     categories.add(item.category);
                 }
@@ -85,8 +85,8 @@ export const useCartStore = defineStore('cart', {
 
     actions: {
         addToCart(pizza, quantity = 1) {
-            const existingItem = this.items.find(item => item.id === pizza.id);
-            
+            const existingItem = this.items.find((item) => item.id === pizza.id);
+
             if (existingItem) {
                 existingItem.quantity += quantity;
             } else {
@@ -102,14 +102,14 @@ export const useCartStore = defineStore('cart', {
         },
 
         removeFromCart(itemId) {
-            const index = this.items.findIndex(item => item.id === itemId);
+            const index = this.items.findIndex((item) => item.id === itemId);
             if (index > -1) {
                 this.items.splice(index, 1);
             }
         },
 
         updateQuantity(itemId, quantity) {
-            const item = this.items.find(item => item.id === itemId);
+            const item = this.items.find((item) => item.id === itemId);
             if (item) {
                 if (quantity <= 0) {
                     this.removeFromCart(itemId);
@@ -140,7 +140,7 @@ export const useCartStore = defineStore('cart', {
 
             // Import here to avoid circular dependency
             const promoApi = (await import('@/services/api/PromoApiService.js')).default;
-            
+
             try {
                 const response = await promoApi.validatePromoCode(this.appliedPromo.code, {
                     userId: 'customer_001',
@@ -152,9 +152,9 @@ export const useCartStore = defineStore('cart', {
                     // Promo is no longer valid
                     const removedCode = this.appliedPromo.code;
                     this.removePromo();
-                    return { 
-                        valid: false, 
-                        message: `${removedCode} is no longer valid and has been removed` 
+                    return {
+                        valid: false,
+                        message: `${removedCode} is no longer valid and has been removed`
                     };
                 } else {
                     // Update discount amount if promo is still valid

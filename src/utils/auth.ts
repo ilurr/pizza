@@ -1,7 +1,5 @@
 import { useUserStore } from '@/stores/userStore';
-import authUsersData from '@/data/authUsers.json';
-
-const API_URL = 'http://localhost:1337/api'; // Change to your Strapi URL
+import { getSupabaseClient } from '@/services/supabase/client.js';
 
 export interface User {
     id: number;
@@ -15,47 +13,41 @@ export function isAuthenticated(): boolean {
 
 export async function login(identifier: string, password: string): Promise<User> {
     try {
-        // TODO: Rollback to axios strapi login later
-        // const response = await axios.post(`${API_URL}/auth/local?populate=*`, {
-        //     identifier,
-        //     password
-        // });
-        // const { jwt, user } = response.data;
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+            throw new Error('Supabase is not configured (VITE_DATA_SOURCE must be "supabase" with URL + ANON key).');
+        }
 
-        // Static login sample data (from src/data/authUsers.json)
-        const staticUsers = authUsersData as Array<{
-            id: number;
-            username: string;
-            email: string;
-            password: string;
-            role: { type: string };
-        }>;
+        // Look up user in Supabase app_users table (dummy auth; passwords are plain text).
+        const { data: userRow, error } = await supabase
+            .from('app_users')
+            .select('*')
+            .or(`email.eq.${identifier},username.eq.${identifier}`)
+            .maybeSingle();
 
-        const foundUser = staticUsers.find((u) => (u.email === identifier || u.username === identifier) && u.password === password);
+        if (error) {
+            throw new Error(error.message || 'Failed to contact auth server');
+        }
 
-        if (!foundUser) {
+        if (!userRow || userRow.password !== password) {
             throw new Error('Invalid credentials');
         }
 
-        // Structure user data to match expected API response
         const user = {
-            id: foundUser.id,
-            username: foundUser.username,
-            email: foundUser.email,
-            role: foundUser.role
+            id: userRow.id,
+            username: userRow.username,
+            email: userRow.email,
+            role: { type: userRow.role_type }
         };
 
+        // Still use a dummy token; real auth will come from your API later.
         const jwt = 'static-jwt-token';
-        // end: static login
 
         localStorage.setItem('token', jwt);
         localStorage.setItem('user', JSON.stringify(user));
 
-        // Set user data directly in store for static login
+        // Set user data directly in store
         const userStore = useUserStore();
-        // await userStore.fetchUser();
-
-        // static
         userStore.user = user;
         userStore.role = user.role.type;
 

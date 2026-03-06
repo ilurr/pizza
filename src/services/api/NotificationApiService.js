@@ -114,7 +114,7 @@ export class NotificationApiService extends BaseApiService {
             expansion_request: {
                 id: 'expansion_request',
                 title: 'Service Area Request',
-                message: 'Thank you for requesting service in {location}. We\'ll notify you when available.',
+                message: "Thank you for requesting service in {location}. We'll notify you when available.",
                 type: 'info',
                 severity: 'info',
                 channels: ['app'],
@@ -132,7 +132,7 @@ export class NotificationApiService extends BaseApiService {
             driver_earnings_milestone: {
                 id: 'driver_earnings_milestone',
                 title: 'Milestone Reached! 🎯',
-                message: 'Congratulations! You\'ve earned {amount} this {period}.',
+                message: "Congratulations! You've earned {amount} this {period}.",
                 type: 'driver_update',
                 severity: 'success',
                 channels: ['app'],
@@ -234,42 +234,38 @@ export class NotificationApiService extends BaseApiService {
     async getUserNotifications(userId, filters = {}) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            let notifications = this.mockNotifications.filter(n => n.userId === userId);
-            
+
+            let notifications = this.mockNotifications.filter((n) => n.userId === userId);
+
             // Apply filters
             if (filters.type) {
-                notifications = notifications.filter(n => n.type === filters.type);
+                notifications = notifications.filter((n) => n.type === filters.type);
             }
-            
+
             if (filters.read !== undefined) {
-                notifications = notifications.filter(n => n.read === filters.read);
+                notifications = notifications.filter((n) => n.read === filters.read);
             }
-            
+
             if (filters.severity) {
-                notifications = notifications.filter(n => n.severity === filters.severity);
+                notifications = notifications.filter((n) => n.severity === filters.severity);
             }
-            
+
             if (filters.since) {
-                notifications = notifications.filter(n => 
-                    new Date(n.createdAt) >= new Date(filters.since)
-                );
+                notifications = notifications.filter((n) => new Date(n.createdAt) >= new Date(filters.since));
             }
-            
+
             // Sort by creation date (newest first)
             notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
+
             // Pagination
             const page = filters.page || 1;
             const limit = filters.limit || 20;
             const startIndex = (page - 1) * limit;
             const paginatedNotifications = notifications.slice(startIndex, startIndex + limit);
-            
+
             // Calculate unread count
-            const unreadCount = this.mockNotifications.filter(n => 
-                n.userId === userId && !n.read
-            ).length;
-            
+            const unreadCount = this.mockNotifications.filter((n) => n.userId === userId && !n.read).length;
+
             return this.createMockResponse({
                 notifications: paginatedNotifications,
                 total: notifications.length,
@@ -279,7 +275,7 @@ export class NotificationApiService extends BaseApiService {
                 totalPages: Math.ceil(notifications.length / limit)
             });
         }
-        
+
         return await this.get(`${this.endpoint}/user/${userId}`, filters);
     }
 
@@ -287,16 +283,16 @@ export class NotificationApiService extends BaseApiService {
     async createNotification(notificationData) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const template = this.mockTemplates[notificationData.templateId];
             if (!template) {
                 return this.createMockError('Template not found', 404);
             }
-            
+
             // Replace placeholders in template
             const title = this.replacePlaceholders(template.title, notificationData.data);
             const message = this.replacePlaceholders(template.message, notificationData.data);
-            
+
             const notification = {
                 id: `notif_${Date.now()}`,
                 userId: notificationData.userId,
@@ -310,24 +306,24 @@ export class NotificationApiService extends BaseApiService {
                 createdAt: new Date().toISOString(),
                 data: notificationData.data || {}
             };
-            
+
             // Add to mock storage
             this.mockNotifications.unshift(notification);
-            
+
             // Emit notification for real-time updates
             this.emit('notification_created', notification);
-            
+
             // Show toast if appropriate
             if (notification.channels.includes('app')) {
                 this.showToastNotification(notification);
             }
-            
+
             return this.createMockResponse({
                 notification: notification,
                 message: 'Notification created successfully'
             });
         }
-        
+
         return await this.post(this.endpoint, notificationData);
     }
 
@@ -335,24 +331,22 @@ export class NotificationApiService extends BaseApiService {
     async markAsRead(notificationId, userId) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const notificationIndex = this.mockNotifications.findIndex(n => 
-                n.id === notificationId && n.userId === userId
-            );
-            
+
+            const notificationIndex = this.mockNotifications.findIndex((n) => n.id === notificationId && n.userId === userId);
+
             if (notificationIndex === -1) {
                 return this.createMockError('Notification not found', 404);
             }
-            
+
             this.mockNotifications[notificationIndex].read = true;
             this.mockNotifications[notificationIndex].readAt = new Date().toISOString();
-            
+
             return this.createMockResponse({
                 notification: this.mockNotifications[notificationIndex],
                 message: 'Notification marked as read'
             });
         }
-        
+
         return await this.patch(`${this.endpoint}/${notificationId}/read`, { userId });
     }
 
@@ -360,22 +354,20 @@ export class NotificationApiService extends BaseApiService {
     async markAllAsRead(userId) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const userNotifications = this.mockNotifications.filter(n => 
-                n.userId === userId && !n.read
-            );
-            
-            userNotifications.forEach(notification => {
+
+            const userNotifications = this.mockNotifications.filter((n) => n.userId === userId && !n.read);
+
+            userNotifications.forEach((notification) => {
                 notification.read = true;
                 notification.readAt = new Date().toISOString();
             });
-            
+
             return this.createMockResponse({
                 markedCount: userNotifications.length,
                 message: `${userNotifications.length} notifications marked as read`
             });
         }
-        
+
         return await this.patch(`${this.endpoint}/user/${userId}/read-all`);
     }
 
@@ -383,22 +375,20 @@ export class NotificationApiService extends BaseApiService {
     async deleteNotification(notificationId, userId) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const notificationIndex = this.mockNotifications.findIndex(n => 
-                n.id === notificationId && n.userId === userId
-            );
-            
+
+            const notificationIndex = this.mockNotifications.findIndex((n) => n.id === notificationId && n.userId === userId);
+
             if (notificationIndex === -1) {
                 return this.createMockError('Notification not found', 404);
             }
-            
+
             this.mockNotifications.splice(notificationIndex, 1);
-            
+
             return this.createMockResponse({
                 message: 'Notification deleted successfully'
             });
         }
-        
+
         return await this.delete(`${this.endpoint}/${notificationId}`, { userId });
     }
 
@@ -406,7 +396,7 @@ export class NotificationApiService extends BaseApiService {
     async getPreferences(userId) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const preferences = this.mockPreferences[userId] || {
                 userId: userId,
                 enabledChannels: ['app', 'email'],
@@ -419,10 +409,10 @@ export class NotificationApiService extends BaseApiService {
                 language: 'id',
                 timezone: 'Asia/Jakarta'
             };
-            
+
             return this.createMockResponse({ preferences });
         }
-        
+
         return await this.get(`${this.endpoint}/preferences/${userId}`);
     }
 
@@ -430,43 +420,43 @@ export class NotificationApiService extends BaseApiService {
     async updatePreferences(userId, preferences) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             this.mockPreferences[userId] = {
                 ...this.mockPreferences[userId],
                 ...preferences,
                 userId: userId,
                 updatedAt: new Date().toISOString()
             };
-            
+
             return this.createMockResponse({
                 preferences: this.mockPreferences[userId],
                 message: 'Preferences updated successfully'
             });
         }
-        
+
         return await this.put(`${this.endpoint}/preferences/${userId}`, preferences);
     }
 
     // Send order status notification
     async sendOrderStatusNotification(orderId, status, data = {}) {
         const statusTemplateMap = {
-            'pending': 'order_placed',
-            'confirmed': 'payment_success',
-            'assigned': 'driver_assigned',
-            'preparing': 'order_preparing',
-            'en_route': 'driver_en_route',
-            'arrived': 'driver_arrived',
-            'cooking': 'order_cooking',
-            'ready': 'order_ready',
-            'delivered': 'order_delivered',
-            'cancelled': 'order_cancelled'
+            pending: 'order_placed',
+            confirmed: 'payment_success',
+            assigned: 'driver_assigned',
+            preparing: 'order_preparing',
+            en_route: 'driver_en_route',
+            arrived: 'driver_arrived',
+            cooking: 'order_cooking',
+            ready: 'order_ready',
+            delivered: 'order_delivered',
+            cancelled: 'order_cancelled'
         };
-        
+
         const templateId = statusTemplateMap[status];
         if (!templateId) {
             return this.createMockError('Invalid order status', 400);
         }
-        
+
         return await this.createNotification({
             userId: data.customerId || 'customer_001',
             templateId: templateId,
@@ -482,7 +472,7 @@ export class NotificationApiService extends BaseApiService {
     // Send payment notification
     async sendPaymentNotification(paymentData) {
         const templateId = paymentData.status === 'PAID' ? 'payment_success' : 'payment_failed';
-        
+
         return await this.createNotification({
             userId: paymentData.customerId || 'customer_001',
             templateId: templateId,
@@ -498,15 +488,15 @@ export class NotificationApiService extends BaseApiService {
     // Send driver alert notification
     async sendDriverAlert(driverId, alertType, data = {}) {
         const templateMap = {
-            'stock_low': 'driver_stock_low',
-            'earnings_milestone': 'driver_earnings_milestone'
+            stock_low: 'driver_stock_low',
+            earnings_milestone: 'driver_earnings_milestone'
         };
-        
+
         const templateId = templateMap[alertType];
         if (!templateId) {
             return this.createMockError('Invalid alert type', 400);
         }
-        
+
         return await this.createNotification({
             userId: driverId,
             templateId: templateId,
@@ -517,7 +507,7 @@ export class NotificationApiService extends BaseApiService {
     // Helper method to replace placeholders in templates
     replacePlaceholders(text, data) {
         if (!data) return text;
-        
+
         return text.replace(/\{(\w+)\}/g, (match, key) => {
             return data[key] !== undefined ? data[key] : match;
         });
@@ -542,7 +532,7 @@ export class NotificationApiService extends BaseApiService {
             life: notification.severity === 'success' ? 8000 : 5000,
             sticky: notification.severity === 'error'
         };
-        
+
         this.emit('show_toast', toastData);
     }
 
@@ -556,7 +546,7 @@ export class NotificationApiService extends BaseApiService {
 
     emit(event, data) {
         const listeners = this.eventListeners.get(event) || [];
-        listeners.forEach(listener => {
+        listeners.forEach((listener) => {
             try {
                 listener(data);
             } catch (error) {
@@ -576,10 +566,10 @@ export class NotificationApiService extends BaseApiService {
     // Payment callback handling (from original NotificationService)
     setupPaymentCallbackListener() {
         if (typeof window === 'undefined') return;
-        
+
         window.addEventListener('message', (event) => {
             if (event.origin !== window.location.origin) return;
-            
+
             if (event.data.type === 'PAYMENT_CALLBACK') {
                 this.handlePaymentCallback(event.data.payload);
             }
@@ -595,33 +585,33 @@ export class NotificationApiService extends BaseApiService {
 
     async handlePaymentCallback(callbackData) {
         console.log('Payment callback received:', callbackData);
-        
+
         // Send payment notification
         await this.sendPaymentNotification(callbackData);
-        
+
         // Emit payment update event
         this.emit('payment_update', callbackData);
-        
+
         // Store in localStorage for persistence
         this.storePaymentNotification(callbackData);
     }
 
     storePaymentNotification(callbackData) {
         if (typeof localStorage === 'undefined') return;
-        
+
         const stored = JSON.parse(localStorage.getItem('payment_notifications') || '[]');
         stored.unshift(callbackData);
-        
+
         if (stored.length > 10) {
             stored.splice(10);
         }
-        
+
         localStorage.setItem('payment_notifications', JSON.stringify(stored));
     }
 
     startPaymentStatusCheck() {
         if (typeof window === 'undefined') return;
-        
+
         setInterval(() => {
             this.checkPendingPayments();
         }, 30000);
@@ -629,13 +619,13 @@ export class NotificationApiService extends BaseApiService {
 
     async checkPendingPayments() {
         if (typeof localStorage === 'undefined') return;
-        
+
         const pendingPayments = JSON.parse(localStorage.getItem('pending_payments') || '[]');
-        
+
         for (const payment of pendingPayments) {
             try {
                 const status = await this.mockCheckPaymentStatus(payment.external_id);
-                
+
                 if (status.status !== 'PENDING') {
                     await this.handlePaymentCallback(status);
                     this.removePendingPayment(payment.external_id);
@@ -649,7 +639,7 @@ export class NotificationApiService extends BaseApiService {
     async mockCheckPaymentStatus(externalId) {
         const statuses = ['PAID', 'FAILED', 'PENDING'];
         const randomStatus = Math.random() < 0.3 ? statuses[Math.floor(Math.random() * 2)] : 'PENDING';
-        
+
         return {
             external_id: externalId,
             status: randomStatus,
@@ -661,9 +651,9 @@ export class NotificationApiService extends BaseApiService {
 
     removePendingPayment(externalId) {
         if (typeof localStorage === 'undefined') return;
-        
+
         const pending = JSON.parse(localStorage.getItem('pending_payments') || '[]');
-        const filtered = pending.filter(p => p.external_id !== externalId);
+        const filtered = pending.filter((p) => p.external_id !== externalId);
         localStorage.setItem('pending_payments', JSON.stringify(filtered));
     }
 }

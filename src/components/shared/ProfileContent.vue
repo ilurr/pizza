@@ -72,7 +72,7 @@ const menuItems = ref([
 ]);
 
 onMounted(async () => {
-    // Fetch user data from Strapi if not already loaded
+    // Fetch user data if not already loaded
     if (!userStore.user) {
         await userStore.fetchUser();
     }
@@ -81,11 +81,9 @@ onMounted(async () => {
 
 <template>
     <div class="profile-content">
-
         <div class="relative p-4 md:max-w-xl md:mx-auto">
             <!-- Top Profile Section (duplicated from existing) -->
-            <div
-                class="relative z-50 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-gray-200 dark:border-transparent p-4 mb-6">
+            <div class="relative z-50 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-gray-200 dark:border-transparent p-4 mb-6">
                 <div class="flex items-center gap-4">
                     <!-- Avatar -->
                     <div class="relative basis-1/6 w-1/6 grow-0">
@@ -93,9 +91,7 @@ onMounted(async () => {
                             <Avatar :image="userStore.user.avatar" size="large" shape="circle" />
                             <!-- <img :src="userStore.user.avatar" :alt="userStore.user.username" class="w-full h-full object-cover" /> -->
                         </div>
-                        <div v-else
-                            class="w-full aspect-square rounded-full flex items-center justify-center text-white text-2xl"
-                            :style="{ backgroundColor: bgColor }">
+                        <div v-else class="w-full aspect-square rounded-full flex items-center justify-center text-white text-2xl" :style="{ backgroundColor: bgColor }">
                             {{ userInitials }}
                         </div>
                     </div>
@@ -111,26 +107,22 @@ onMounted(async () => {
                     </div>
 
                     <!-- Edit Icon -->
-                    <Button icon="pi pi-pencil" severity="secondary" text size="small" @click="handleEditProfile"
-                        class="h-10 basis-1/6 grow-0 !w-1/6" />
+                    <Button icon="pi pi-pencil" severity="secondary" text size="small" @click="handleEditProfile" class="h-10 basis-1/6 grow-0 !w-1/6" />
                 </div>
             </div>
 
             <!-- Menu Sections (duplicated from existing) -->
             <PanelMenu :model="menuItems">
                 <template #item="{ item }">
-                    <a v-if="!item.separator" v-ripple class="flex items-center p-4 cursor-pointer group"
-                        @click="item.command">
+                    <a v-if="!item.separator" v-ripple class="flex items-center p-4 cursor-pointer group" @click="item.command">
                         <span :class="[item.icon, '!text-xl group-hover:text-inherit']" />
-                        <span :class="['ml-6', item.class]">{{ item.label }} <i class="flex text-xs not-italic mt-1">{{
-                            item.desc }}</i></span>
+                        <span :class="['ml-6', item.class]"
+                            >{{ item.label }} <i class="flex text-xs not-italic mt-1">{{ item.desc }}</i></span
+                        >
                         <Badge v-if="item.badge" class="ml-auto" :value="item.badge" />
-                        <span v-if="item.shortcut"
-                            class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1">{{
-                                item.shortcut }}</span>
+                        <span v-if="item.shortcut" class="ml-auto border border-surface rounded bg-emphasis text-muted-color text-xs p-1">{{ item.shortcut }}</span>
                     </a>
-                    <div v-else
-                        class="px-4 py-3 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-transparent">
+                    <div v-else class="px-4 py-3 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-transparent">
                         {{ item.label }}
                     </div>
                 </template>

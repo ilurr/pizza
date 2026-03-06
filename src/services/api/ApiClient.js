@@ -3,22 +3,16 @@ import axios from 'axios';
 // Environment configuration for API switching
 const API_CONFIG = {
     USE_MOCK_API: import.meta.env.VITE_USE_MOCK_API !== 'false', // Default to true for development
+    DATA_SOURCE: import.meta.env.VITE_DATA_SOURCE || 'supabase', // 'supabase' | 'api'
     BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1',
-    STRAPI_URL: import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337/api',
+    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
+    SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
     TIMEOUT: 10000
 };
 
-// Create axios instances
+// Create axios instance for real API
 const apiClient = axios.create({
     baseURL: API_CONFIG.BASE_URL,
-    timeout: API_CONFIG.TIMEOUT,
-    headers: {
-        'Content-Type': 'application/json'
-    }
-});
-
-const strapiClient = axios.create({
-    baseURL: API_CONFIG.STRAPI_URL,
     timeout: API_CONFIG.TIMEOUT,
     headers: {
         'Content-Type': 'application/json'
@@ -84,15 +78,14 @@ const addResponseInterceptors = (client) => {
 
 // Apply interceptors
 addAuthInterceptors(apiClient);
-addAuthInterceptors(strapiClient);
 addResponseInterceptors(apiClient);
-addResponseInterceptors(strapiClient);
 
 // Base API service class
 export class BaseApiService {
     constructor(client = apiClient) {
         this.client = client;
         this.useMockApi = API_CONFIG.USE_MOCK_API;
+        this.dataSource = API_CONFIG.DATA_SOURCE; // 'supabase' | 'api'
     }
 
     // Generic request methods
@@ -164,14 +157,14 @@ export class BaseApiService {
 
         // Log error for debugging
         console.error('API Error:', errorResponse);
-        
+
         return errorResponse;
     }
 
     // Utility method to simulate API delay for mock data
     async mockDelay(ms = 500) {
         if (this.useMockApi) {
-            await new Promise(resolve => setTimeout(resolve, ms));
+            await new Promise((resolve) => setTimeout(resolve, ms));
         }
     }
 
@@ -198,6 +191,6 @@ export class BaseApiService {
     }
 }
 
-// Export configured clients and config
-export { apiClient, strapiClient, API_CONFIG };
+// Export configured client and config
+export { apiClient, API_CONFIG };
 export default new BaseApiService();

@@ -11,7 +11,7 @@ const selectedTab = ref('pending');
 // Methods
 const acceptOrder = async (orderId) => {
     if (driverStore.isProcessingOrder) return;
-    
+
     const result = await driverStore.acceptOrder(orderId);
     if (result.success) {
         toast.add({
@@ -32,7 +32,7 @@ const acceptOrder = async (orderId) => {
 
 const rejectOrder = async (orderId) => {
     if (driverStore.isProcessingOrder) return;
-    
+
     const result = await driverStore.rejectOrder(orderId);
     if (result.success) {
         toast.add({
@@ -55,13 +55,13 @@ const updateOrderStatus = async (orderId, status) => {
     const result = await driverStore.updateOrderStatus(orderId, status, driverStore.currentLocation);
     if (result.success) {
         const statusMessages = {
-            'en_route': 'Status updated: On the way to customer',
-            'arrived': 'Status updated: Arrived at location',
-            'cooking': 'Status updated: Cooking pizza',
-            'ready': 'Status updated: Pizza is ready',
-            'delivered': 'Order completed successfully!'
+            en_route: 'Status updated: On the way to customer',
+            arrived: 'Status updated: Arrived at location',
+            cooking: 'Status updated: Cooking pizza',
+            ready: 'Status updated: Pizza is ready',
+            delivered: 'Order completed successfully!'
         };
-        
+
         toast.add({
             severity: 'success',
             summary: 'Status Updated',
@@ -96,24 +96,24 @@ const formatCurrency = (amount) => {
 
 const getOrderStatusColor = (status) => {
     const colors = {
-        'pending': 'warn',
-        'accepted': 'info',
-        'en_route': 'info',
-        'arrived': 'warn',
-        'cooking': 'warn',
-        'ready': 'success',
-        'delivered': 'success'
+        pending: 'warn',
+        accepted: 'info',
+        en_route: 'info',
+        arrived: 'warn',
+        cooking: 'warn',
+        ready: 'success',
+        delivered: 'success'
     };
     return colors[status] || 'info';
 };
 
 const getNextStatusAction = (status) => {
     const actions = {
-        'accepted': { label: 'Start Journey', status: 'en_route', icon: 'pi pi-arrow-right' },
-        'en_route': { label: 'Mark Arrived', status: 'arrived', icon: 'pi pi-map-marker' },
-        'arrived': { label: 'Start Cooking', status: 'cooking', icon: 'pi pi-play' },
-        'cooking': { label: 'Pizza Ready', status: 'ready', icon: 'pi pi-check' },
-        'ready': { label: 'Mark Delivered', status: 'delivered', icon: 'pi pi-verified' }
+        accepted: { label: 'Start Journey', status: 'en_route', icon: 'pi pi-arrow-right' },
+        en_route: { label: 'Mark Arrived', status: 'arrived', icon: 'pi pi-map-marker' },
+        arrived: { label: 'Start Cooking', status: 'cooking', icon: 'pi pi-play' },
+        cooking: { label: 'Pizza Ready', status: 'ready', icon: 'pi pi-check' },
+        ready: { label: 'Mark Delivered', status: 'delivered', icon: 'pi pi-verified' }
     };
     return actions[status];
 };
@@ -136,16 +136,14 @@ onMounted(async () => {
             <div class="card">
                 <h3>Order Management</h3>
                 <p class="text-600">Manage your order requests and track active deliveries</p>
-                
-                <TabView v-model:activeIndex="selectedTab" @tab-change="(e) => selectedTab = e.index === 0 ? 'pending' : 'active'">
+
+                <TabView v-model:activeIndex="selectedTab" @tab-change="(e) => (selectedTab = e.index === 0 ? 'pending' : 'active')">
                     <TabPanel header="Pending Requests">
                         <template #header>
                             <div class="flex align-items-center gap-2">
                                 <i class="pi pi-clock"></i>
                                 <span>Pending Requests</span>
-                                <Badge v-if="driverStore.ordersRequiringAction.length > 0" 
-                                       :value="driverStore.ordersRequiringAction.length" 
-                                       severity="warning" />
+                                <Badge v-if="driverStore.ordersRequiringAction.length > 0" :value="driverStore.ordersRequiringAction.length" severity="warning" />
                             </div>
                         </template>
 
@@ -156,9 +154,7 @@ onMounted(async () => {
                         </div>
 
                         <div v-else class="grid">
-                            <div v-for="order in driverStore.ordersRequiringAction" 
-                                 :key="order.id" 
-                                 class="col-12 lg:col-6">
+                            <div v-for="order in driverStore.ordersRequiringAction" :key="order.id" class="col-12 lg:col-6">
                                 <div class="card bg-yellow-50 border-left-3 border-yellow-500">
                                     <!-- Order Header -->
                                     <div class="flex justify-content-between align-items-start mb-3">
@@ -177,9 +173,7 @@ onMounted(async () => {
                                     <div class="mb-3">
                                         <h6 class="text-sm font-medium text-700 mb-2">Order Items:</h6>
                                         <div class="pl-3">
-                                            <div v-for="item in order.items" :key="item.name" class="text-sm mb-1">
-                                                {{ item.quantity }}× {{ item.name }}
-                                            </div>
+                                            <div v-for="item in order.items" :key="item.name" class="text-sm mb-1">{{ item.quantity }}× {{ item.name }}</div>
                                         </div>
                                     </div>
 
@@ -200,24 +194,8 @@ onMounted(async () => {
 
                                     <!-- Action Buttons -->
                                     <div class="flex gap-2">
-                                        <Button 
-                                            label="Accept Order" 
-                                            icon="pi pi-check"
-                                            @click="acceptOrder(order.id)"
-                                            :loading="driverStore.isProcessingOrder"
-                                            :disabled="driverStore.isProcessingOrder"
-                                            severity="success"
-                                            class="flex-1"
-                                        />
-                                        <Button 
-                                            label="Reject" 
-                                            icon="pi pi-times"
-                                            @click="rejectOrder(order.id)"
-                                            :loading="driverStore.isProcessingOrder"
-                                            :disabled="driverStore.isProcessingOrder"
-                                            severity="danger"
-                                            outlined
-                                        />
+                                        <Button label="Accept Order" icon="pi pi-check" @click="acceptOrder(order.id)" :loading="driverStore.isProcessingOrder" :disabled="driverStore.isProcessingOrder" severity="success" class="flex-1" />
+                                        <Button label="Reject" icon="pi pi-times" @click="rejectOrder(order.id)" :loading="driverStore.isProcessingOrder" :disabled="driverStore.isProcessingOrder" severity="danger" outlined />
                                     </div>
                                 </div>
                             </div>
@@ -229,9 +207,7 @@ onMounted(async () => {
                             <div class="flex align-items-center gap-2">
                                 <i class="pi pi-truck"></i>
                                 <span>Active Orders</span>
-                                <Badge v-if="driverStore.activeOrders.length > 0" 
-                                       :value="driverStore.activeOrders.length" 
-                                       severity="info" />
+                                <Badge v-if="driverStore.activeOrders.length > 0" :value="driverStore.activeOrders.length" severity="info" />
                             </div>
                         </template>
 
@@ -257,20 +233,13 @@ onMounted(async () => {
                                 </Column>
                                 <Column header="Contact" style="min-width: 8rem">
                                     <template #body="{ data }">
-                                        <Button 
-                                            icon="pi pi-phone" 
-                                            :onclick="`tel:${data.customerPhone}`"
-                                            severity="success"
-                                            outlined
-                                            size="small"
-                                            rounded
-                                        />
+                                        <Button icon="pi pi-phone" :onclick="`tel:${data.customerPhone}`" severity="success" outlined size="small" rounded />
                                     </template>
                                 </Column>
                                 <Column header="Actions" style="min-width: 12rem">
                                     <template #body="{ data }">
                                         <div class="flex gap-1" v-if="getNextStatusAction(data.status)">
-                                            <Button 
+                                            <Button
                                                 :label="getNextStatusAction(data.status).label"
                                                 :icon="getNextStatusAction(data.status).icon"
                                                 @click="updateOrderStatus(data.id, getNextStatusAction(data.status).status)"

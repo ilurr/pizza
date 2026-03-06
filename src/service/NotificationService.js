@@ -9,7 +9,7 @@ export class NotificationService {
     static init() {
         // Listen for payment callback events
         this.setupPaymentCallbackListener();
-        
+
         // Setup periodic check for payment status
         this.startPaymentStatusCheck();
     }
@@ -75,7 +75,7 @@ export class NotificationService {
     static showPaymentNotification(notification) {
         // This would integrate with your toast system
         const toastData = this.formatPaymentToast(notification);
-        
+
         // Emit toast event for components to listen to
         this.emit('show_toast', toastData);
     }
@@ -87,22 +87,22 @@ export class NotificationService {
      */
     static formatPaymentToast(notification) {
         const statusMessages = {
-            'PAID': {
+            PAID: {
                 severity: 'success',
                 summary: 'Payment Successful! 🎉',
                 detail: `Your order has been confirmed. Amount: ${this.formatCurrency(notification.amount)}`
             },
-            'FAILED': {
+            FAILED: {
                 severity: 'error',
                 summary: 'Payment Failed',
                 detail: 'Your payment could not be processed. Please try again.'
             },
-            'PENDING': {
+            PENDING: {
                 severity: 'info',
                 summary: 'Payment Pending',
-                detail: 'Your payment is being processed. We\'ll notify you once confirmed.'
+                detail: "Your payment is being processed. We'll notify you once confirmed."
             },
-            'EXPIRED': {
+            EXPIRED: {
                 severity: 'warn',
                 summary: 'Payment Expired',
                 detail: 'Your payment session has expired. Please try again.'
@@ -123,12 +123,12 @@ export class NotificationService {
     static storeNotification(notification) {
         const stored = JSON.parse(localStorage.getItem('payment_notifications') || '[]');
         stored.unshift(notification);
-        
+
         // Keep only last 10 notifications
         if (stored.length > 10) {
             stored.splice(10);
         }
-        
+
         localStorage.setItem('payment_notifications', JSON.stringify(stored));
     }
 
@@ -154,12 +154,12 @@ export class NotificationService {
      */
     static async checkPendingPayments() {
         const pendingPayments = JSON.parse(localStorage.getItem('pending_payments') || '[]');
-        
+
         for (const payment of pendingPayments) {
             try {
                 // In real implementation, this would call your backend
                 const status = await this.mockCheckPaymentStatus(payment.external_id);
-                
+
                 if (status.status !== 'PENDING') {
                     this.handlePaymentCallback(status);
                     this.removePendingPayment(payment.external_id);
@@ -190,7 +190,7 @@ export class NotificationService {
      */
     static removePendingPayment(externalId) {
         const pending = JSON.parse(localStorage.getItem('pending_payments') || '[]');
-        const filtered = pending.filter(p => p.external_id !== externalId);
+        const filtered = pending.filter((p) => p.external_id !== externalId);
         localStorage.setItem('pending_payments', JSON.stringify(filtered));
     }
 
@@ -203,7 +203,7 @@ export class NotificationService {
         // Simulate random payment completion for demo
         const statuses = ['PAID', 'FAILED', 'PENDING'];
         const randomStatus = Math.random() < 0.3 ? statuses[Math.floor(Math.random() * 2)] : 'PENDING';
-        
+
         return {
             external_id: externalId,
             status: randomStatus,
@@ -224,7 +224,7 @@ export class NotificationService {
 
     static emit(event, data) {
         const listeners = this.eventListeners.get(event) || [];
-        listeners.forEach(listener => {
+        listeners.forEach((listener) => {
             try {
                 listener(data);
             } catch (error) {
@@ -293,12 +293,12 @@ export class NotificationService {
     static storeGenericNotification(notification) {
         const stored = JSON.parse(localStorage.getItem('notifications') || '[]');
         stored.unshift(notification);
-        
+
         // Keep only last 50 notifications
         if (stored.length > 50) {
             stored.splice(50);
         }
-        
+
         localStorage.setItem('notifications', JSON.stringify(stored));
     }
 
@@ -313,7 +313,7 @@ export class NotificationService {
             detail: notification.message,
             life: 5000
         };
-        
+
         this.emit('show_toast', toastData);
     }
 
@@ -324,15 +324,15 @@ export class NotificationService {
      */
     static getToastSeverity(type) {
         const severityMap = {
-            'delivery_update': 'info',
-            'payment_update': 'success',
-            'order_update': 'info',
-            'error': 'error',
-            'warning': 'warn',
-            'success': 'success',
-            'info': 'info'
+            delivery_update: 'info',
+            payment_update: 'success',
+            order_update: 'info',
+            error: 'error',
+            warning: 'warn',
+            success: 'success',
+            info: 'info'
         };
-        
+
         return severityMap[type] || 'info';
     }
 
@@ -355,12 +355,12 @@ export class NotificationService {
             timestamp: new Date().toISOString(),
             data: requestData
         };
-        
+
         // Store in localStorage for demo
         const requests = JSON.parse(localStorage.getItem('expansion_requests') || '[]');
         requests.unshift(notification);
         localStorage.setItem('expansion_requests', JSON.stringify(requests));
-        
+
         return notification;
     }
 
@@ -370,17 +370,20 @@ export class NotificationService {
      * @param {string} status - Payment status
      */
     static simulatePaymentCallback(externalId, status = 'PAID') {
-        setTimeout(() => {
-            const callbackData = {
-                external_id: externalId,
-                status: status,
-                amount: 50000,
-                paid_at: status === 'PAID' ? new Date().toISOString() : null,
-                payment_method: 'CREDIT_CARD'
-            };
-            
-            this.handlePaymentCallback(callbackData);
-        }, Math.random() * 10000 + 5000); // Random delay 5-15 seconds
+        setTimeout(
+            () => {
+                const callbackData = {
+                    external_id: externalId,
+                    status: status,
+                    amount: 50000,
+                    paid_at: status === 'PAID' ? new Date().toISOString() : null,
+                    payment_method: 'CREDIT_CARD'
+                };
+
+                this.handlePaymentCallback(callbackData);
+            },
+            Math.random() * 10000 + 5000
+        ); // Random delay 5-15 seconds
     }
 }
 

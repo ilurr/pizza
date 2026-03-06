@@ -1,99 +1,3 @@
-<template>
-    <div class="p-8">
-        <h2 class="text-2xl font-bold mb-6">Promo System Test</h2>
-        
-        <!-- Test Cart Modal Button -->
-        <div class="mb-6">
-            <Button 
-                label="Open Cart (Test Promo)" 
-                @click="showCart = true"
-                class="bg-red-500 hover:bg-red-600 border-red-500"
-            />
-        </div>
-
-        <!-- Add Test Items to Cart -->
-        <div class="mb-6">
-            <h3 class="text-lg font-semibold mb-4">Add Test Items to Cart</h3>
-            <div class="flex gap-2 flex-wrap">
-                <Button 
-                    label="Add Margherita Pizza" 
-                    @click="addTestPizza"
-                    outlined
-                />
-                <Button 
-                    label="Add Beverage" 
-                    @click="addTestBeverage"
-                    outlined
-                />
-                <Button 
-                    label="Clear Cart" 
-                    @click="clearCart"
-                    severity="secondary"
-                    outlined
-                />
-            </div>
-        </div>
-
-        <!-- Cart Summary -->
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-2">Current Cart</h3>
-            <p><strong>Items:</strong> {{ cartStore.totalItems }}</p>
-            <p><strong>Total:</strong> {{ cartStore.formattedTotalPrice }}</p>
-            
-            <div v-if="cartStore.items.length > 0" class="mt-2">
-                <div v-for="item in cartStore.items" :key="item.id" class="text-sm">
-                    {{ item.name }} - {{ item.quantity }}x {{ formatCurrency(item.price) }}
-                </div>
-            </div>
-        </div>
-
-        <!-- Test Promo API Directly -->
-        <div class="mt-8">
-            <h3 class="text-lg font-semibold mb-4">Test Promo API</h3>
-            <div class="space-y-4">
-                <Button 
-                    label="Load Available Promos" 
-                    @click="testLoadPromos"
-                    :loading="loading"
-                />
-                
-                <div class="flex gap-2">
-                    <InputText 
-                        v-model="testCode" 
-                        placeholder="Enter promo code to test"
-                        class="flex-1"
-                    />
-                    <Button 
-                        label="Validate Code" 
-                        @click="testValidateCode"
-                        :loading="validating"
-                    />
-                </div>
-            </div>
-            
-            <div v-if="promoResults.length > 0" class="mt-4">
-                <h4 class="font-semibold mb-2">Available Promos:</h4>
-                <div class="space-y-2">
-                    <div 
-                        v-for="promo in promoResults" 
-                        :key="promo.id"
-                        class="p-2 border rounded bg-white dark:bg-gray-700"
-                    >
-                        <div class="font-medium">{{ promo.title }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">{{ promo.code }} - {{ promo.description }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cart Modal -->
-    <CartModal 
-        :visible="showCart"
-        @update:visible="showCart = $event"
-    />
-</template>
-
 <script setup>
 import { ref } from 'vue';
 import { useCartStore } from '@/stores/cartStore.js';
@@ -131,9 +35,9 @@ const addTestPizza = () => {
         description: 'Test pizza for promo functionality',
         category: 'Classic Pizza'
     };
-    
+
     cartStore.addToCart(testPizza, 1);
-    
+
     toast.add({
         severity: 'success',
         summary: 'Added to Cart',
@@ -144,16 +48,16 @@ const addTestPizza = () => {
 
 const addTestBeverage = () => {
     const testBeverage = {
-        id: 'beverage_test_001', 
+        id: 'beverage_test_001',
         name: 'Test Coca Cola',
         price: 12000,
         image: null,
         description: 'Test beverage for combo promo',
         category: 'Soft Drinks'
     };
-    
+
     cartStore.addToCart(testBeverage, 2);
-    
+
     toast.add({
         severity: 'success',
         summary: 'Added to Cart',
@@ -164,7 +68,7 @@ const addTestBeverage = () => {
 
 const clearCart = () => {
     cartStore.clearCart();
-    
+
     toast.add({
         severity: 'info',
         summary: 'Cart Cleared',
@@ -175,13 +79,13 @@ const clearCart = () => {
 
 const testLoadPromos = async () => {
     loading.value = true;
-    
+
     try {
         const response = await promos.getAvailablePromos('customer_001', {
             orderAmount: cartStore.totalPrice,
             categories: ['Classic Pizza', 'Soft Drinks']
         });
-        
+
         if (response.success) {
             promoResults.value = response.data.promos;
             toast.add({
@@ -220,16 +124,16 @@ const testValidateCode = async () => {
         });
         return;
     }
-    
+
     validating.value = true;
-    
+
     try {
         const response = await promos.validatePromoCode(testCode.value, {
             userId: 'customer_001',
             orderAmount: cartStore.totalPrice,
             categories: ['Classic Pizza', 'Soft Drinks']
         });
-        
+
         if (response.success) {
             toast.add({
                 severity: 'success',
@@ -257,3 +161,61 @@ const testValidateCode = async () => {
     }
 };
 </script>
+
+<template>
+    <div class="p-8">
+        <h2 class="text-2xl font-bold mb-6">Promo System Test</h2>
+
+        <!-- Test Cart Modal Button -->
+        <div class="mb-6">
+            <Button label="Open Cart (Test Promo)" @click="showCart = true" class="bg-red-500 hover:bg-red-600 border-red-500" />
+        </div>
+
+        <!-- Add Test Items to Cart -->
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-4">Add Test Items to Cart</h3>
+            <div class="flex gap-2 flex-wrap">
+                <Button label="Add Margherita Pizza" @click="addTestPizza" outlined />
+                <Button label="Add Beverage" @click="addTestBeverage" outlined />
+                <Button label="Clear Cart" @click="clearCart" severity="secondary" outlined />
+            </div>
+        </div>
+
+        <!-- Cart Summary -->
+        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <h3 class="text-lg font-semibold mb-2">Current Cart</h3>
+            <p><strong>Items:</strong> {{ cartStore.totalItems }}</p>
+            <p><strong>Total:</strong> {{ cartStore.formattedTotalPrice }}</p>
+
+            <div v-if="cartStore.items.length > 0" class="mt-2">
+                <div v-for="item in cartStore.items" :key="item.id" class="text-sm">{{ item.name }} - {{ item.quantity }}x {{ formatCurrency(item.price) }}</div>
+            </div>
+        </div>
+
+        <!-- Test Promo API Directly -->
+        <div class="mt-8">
+            <h3 class="text-lg font-semibold mb-4">Test Promo API</h3>
+            <div class="space-y-4">
+                <Button label="Load Available Promos" @click="testLoadPromos" :loading="loading" />
+
+                <div class="flex gap-2">
+                    <InputText v-model="testCode" placeholder="Enter promo code to test" class="flex-1" />
+                    <Button label="Validate Code" @click="testValidateCode" :loading="validating" />
+                </div>
+            </div>
+
+            <div v-if="promoResults.length > 0" class="mt-4">
+                <h4 class="font-semibold mb-2">Available Promos:</h4>
+                <div class="space-y-2">
+                    <div v-for="promo in promoResults" :key="promo.id" class="p-2 border rounded bg-white dark:bg-gray-700">
+                        <div class="font-medium">{{ promo.title }}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">{{ promo.code }} - {{ promo.description }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Modal -->
+    <CartModal :visible="showCart" @update:visible="showCart = $event" />
+</template>

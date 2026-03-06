@@ -49,7 +49,7 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
 
 | Store | File | Persist | Purpose |
 |-------|------|---------|--------|
-| **user** | `stores/userStore.ts` | No | `user`, `role`; `fetchUser()` calls Strapi `GET /users/me?populate=role` (or stays null with static login). |
+| **user** | `stores/userStore.ts` | No | `user`, `role`; `fetchUser()` can call backend or Supabase (or stays null with static login). |
 | **cart** | `stores/cartStore.js` | No | `items`, `appliedPromo`, `promoDiscount`; totals, promo validation, add/remove/update/clear. |
 | **order** | `stores/orderStore.js` | Yes (`localStorage`, key `pizza-order-state`) | Order flow: `currentStep` (location → driver → menu → checkout), `completedSteps`, `userLocation`, `availableDrivers`, `selectedDriver`, timestamps. Used to resume order and detect stale (>30 min). |
 | **driver** | `stores/driverStore.js` | No | Driver app: profile, online/available, pending/active/completed orders, coverage, stats. Mock data + geolocation. |
@@ -60,12 +60,12 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
 ### 2.4 API Layer (`src/services/api/`)
 
 - **index.js:** Singleton `ApiClient`; aggregates all services; mock/real switch via `VITE_USE_MOCK_API`; `initialize()`, `setMockMode()`, `healthCheck()`, `batch()`, `shortcuts`.
-- **ApiClient.js:** `API_CONFIG` (BASE_URL, STRAPI_URL, USE_MOCK_API, TIMEOUT); axios `apiClient` and `strapiClient`; auth interceptors (Bearer token); response interceptors (401 → clear token + redirect login, 403/404/500 log); `BaseApiService` with get/post/patch/put/delete, `mockDelay`, `createMockResponse`, `createMockError`.
+- **ApiClient.js:** `API_CONFIG` (BASE_URL, DATA_SOURCE, SUPABASE_URL, SUPABASE_ANON_KEY, USE_MOCK_API, TIMEOUT); axios `apiClient`; auth interceptors (Bearer token); response interceptors (401 → clear token + redirect login, 403/404/500 log); `BaseApiService` with get/post/patch/put/delete, `mockDelay`, `createMockResponse`, `createMockError`.
 - **Domain services:** ProductsApiService, OrdersApiService, DriverApiService, LocationApiService, NotificationApiService, PromoApiService; each extends `BaseApiService`, uses `useMockApi` and mock data when enabled.
 - **Payments:** Wrapped in `api.payments`; implementation lives in `src/service/PaymentService.js` (not under `services/api/`). Mock uses `PaymentService.simulatePayment()`; real uses `createPayment`, `getPaymentStatus`, `handleWebhook`.
 
 **Env (see `src/services/api/README.md`):**  
-`VITE_USE_MOCK_API`, `VITE_API_BASE_URL`, `VITE_STRAPI_URL`, `VITE_XENDIT_WEBHOOK_SECRET`. No `.env` in repo; defaults in code.
+`VITE_DATA_SOURCE` (supabase | api), `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_USE_MOCK_API`, `VITE_API_BASE_URL`, `VITE_XENDIT_WEBHOOK_SECRET`. No `.env` in repo; defaults in code.
 
 ### 2.5 Legacy / Feature Services (`src/service/`)
 
@@ -163,7 +163,7 @@ Deep-dive documentation of the Vue.js pizza ordering app: architecture, visuals,
   - `isAuthenticated()`: true if `localStorage.getItem('token')` exists.  
   - **Login:** Static list (e.g. bram/Admin123 → drivers, admin/Admin123 → mitra); no Strapi call; sets `token` and `user` in localStorage and `userStore.user` / `userStore.role`.  
   - **Logout:** Clears token and user from localStorage and userStore.
-- **userStore.fetchUser:** If authenticated, GET Strapi `/users/me?populate=role` and sets `user` and `role`. With static login, fetchUser is skipped after login (user set directly).
+- **userStore.fetchUser:** If authenticated, can fetch user from backend or Supabase and set `user` and `role`. With static login, fetchUser is skipped after login (user set directly).
 - **Router:** Only routes with `meta.requiresAuth` or `meta.roles` use the guard; `/order/now` requires auth; `/payment-summary` and `/order/my` do not.
 
 ---
@@ -263,8 +263,8 @@ src/
 
 ## 10. Quick Reference for Adjustments
 
-- **Switch to real API:** Set `VITE_USE_MOCK_API=false`; ensure backend matches API layer contracts (see `src/services/api/README.md`).
-- **Auth:** Replace static login in `utils/auth.ts` with Strapi (or your backend) and keep using userStore + router guards.
+- **Switch to real API:** Set `VITE_DATA_SOURCE=api` (and `VITE_API_BASE_URL`); ensure backend matches API layer contracts (see `src/services/api/README.md`). For trial, set `VITE_DATA_SOURCE=supabase` and use Supabase.
+- **Auth:** Replace static login in `utils/auth.ts` with Supabase Auth or your backend and keep using userStore + router guards.
 - **Orders in UI:** Point MyOrders and useActiveOrders to `api.orders.getUserOrders(userId)` and real user id.
 - **Create order on payment:** Backend creates order on Xendit webhook (PAID); frontend can refresh My Orders or poll order status.
 - **Driver list:** Replace mock in OrderNow with `api.drivers.getAvailableDrivers` (or location-based endpoint).

@@ -1,24 +1,37 @@
 // stores/userStore.ts
 import { isAuthenticated } from '@/utils/auth';
-import axios from 'axios';
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 export const useUserStore = defineStore('user', () => {
-    const user = ref(null);
-    const role = ref(null); // Store role separately
+    const user = ref<any | null>(null);
+    const role = ref<string | null>(null); // Store role separately
 
     const fetchUser = async () => {
-        if (!isAuthenticated()) return; // Prevent API call if not logged in
+        if (!isAuthenticated()) {
+            user.value = null;
+            role.value = null;
+            return;
+        }
 
-        try {
-            const response = await axios.get('http://localhost:1337/api/users/me?populate=role', {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            });
-            user.value = response.data;
-            role.value = response.data.role?.type; // Get role type
-        } catch (error) {
-            console.error('Error fetching user:', error);
+        // Bootstrap user state from localStorage (set by utils/auth.login)
+        const stored = localStorage.getItem('user');
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                user.value = parsed;
+                // Support both { role: { type } } and flat { role: string }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const anyParsed: any = parsed;
+                role.value = anyParsed.role?.type ?? anyParsed.role ?? null;
+            } catch (e) {
+                console.error('Failed to parse stored user:', e);
+                user.value = null;
+                role.value = null;
+            }
+        } else {
+            user.value = null;
+            role.value = null;
         }
     };
 

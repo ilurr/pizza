@@ -37,7 +37,7 @@ const createPaymentRequest = async () => {
             name: orderStore.userLocation?.address || 'Customer',
             email: 'customer@example.com'
         },
-        items: cartStore.items.map(item => ({
+        items: cartStore.items.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             price: item.price,
@@ -96,7 +96,6 @@ const processPayment = async () => {
             detail: 'Complete your payment in the new tab that opened.',
             life: 5000
         });
-
     } catch (error) {
         console.error('Payment error:', error);
         toast.add({
@@ -134,15 +133,15 @@ const handlePaymentWindowClosed = () => {
     toast.add({
         severity: 'info',
         summary: 'Payment Window Closed',
-        detail: 'We\'ll notify you once payment status is confirmed.',
+        detail: "We'll notify you once payment status is confirmed.",
         life: 3000
     });
 };
 
 // Cleanup function
 const cleanup = () => {
-    NotificationService.off('show_toast', () => { });
-    NotificationService.off('payment_update', () => { });
+    NotificationService.off('show_toast', () => {});
+    NotificationService.off('payment_update', () => {});
 };
 
 // Check if cart is empty on mount
@@ -177,10 +176,8 @@ onUnmounted(() => {
 
             <div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
                 <div class="relative p-4 md:p-0">
-
                     <!-- Order Summary Section -->
-                    <div
-                        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h2>
 
                         <!-- Delivery Info -->
@@ -189,31 +186,26 @@ onUnmounted(() => {
                                 <i class="pi pi-map-marker text-green-600 mt-1"></i>
                                 <div>
                                     <p class="font-medium text-gray-900 dark:text-white mb-0">Delivery Address</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{
-                                        orderStore.userLocation?.address }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ orderStore.userLocation?.address }}</p>
                                 </div>
                             </div>
                             <div class="flex items-start space-x-3 mt-3">
                                 <i class="pi pi-user text-blue-600 mt-1"></i>
                                 <div>
                                     <p class="font-medium text-gray-900 dark:text-white mb-0">Chef</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{
-                                        orderStore.selectedDriver?.name }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ orderStore.selectedDriver?.name }}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Items List -->
                         <div class="space-y-3 mb-4">
-                            <div v-for="item in cartStore.items" :key="item.id"
-                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                            <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
                                 <div class="flex-1">
                                     <p class="font-medium text-gray-900 dark:text-white mb-0">{{ item.name }}</p>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.quantity }} × Rp{{
-                                        item.price.toLocaleString('id-ID') }}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.quantity }} × Rp{{ item.price.toLocaleString('id-ID') }}</p>
                                 </div>
-                                <p class="font-medium text-gray-900 dark:text-white">Rp{{ (item.price *
-                                    item.quantity).toLocaleString('id-ID') }}</p>
+                                <p class="font-medium text-gray-900 dark:text-white">Rp{{ (item.price * item.quantity).toLocaleString('id-ID') }}</p>
                             </div>
                         </div>
 
@@ -229,15 +221,12 @@ onUnmounted(() => {
                             </div>
 
                             <!-- Applied Promo Display -->
-                            <div v-if="cartStore.appliedPromo"
-                                class="flex justify-between items-center mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                            <div v-if="cartStore.appliedPromo" class="flex justify-between items-center mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
                                 <div class="flex items-center space-x-2">
                                     <i class="pi pi-tag text-blue-600"></i>
                                     <div>
-                                        <span class="text-sm font-medium text-blue-800 dark:text-blue-200">{{
-                                            cartStore.appliedPromo.code }}</span>
-                                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-0">{{
-                                            cartStore.appliedPromo.title }}</p>
+                                        <span class="text-sm font-medium text-blue-800 dark:text-blue-200">{{ cartStore.appliedPromo.code }}</span>
+                                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-0">{{ cartStore.appliedPromo.title }}</p>
                                     </div>
                                 </div>
                                 <!-- <span class="font-medium text-green-600">-{{ cartStore.formattedDiscount }}</span> -->
@@ -252,44 +241,34 @@ onUnmounted(() => {
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
                                 <div class="flex justify-between items-center">
                                     <span class="text-lg font-semibold">Total</span>
-                                    <span class="text-lg font-bold text-red-600">{{ cartStore.formattedFinalTotal
-                                    }}</span>
+                                    <span class="text-lg font-bold text-red-600">{{ cartStore.formattedFinalTotal }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Payment Gateway Info -->
-                    <div
-                        class="shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 flex items-center space-x-3 p-4 gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div class="shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 flex items-center space-x-3 p-4 gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <!-- <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Payment</h2> -->
 
                         <!-- <div class="flex items-center space-x-3 p-4 gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"> -->
                         <i class="pi pi-shield text-blue-600 !text-2xl"></i>
                         <div>
                             <p class="font-medium text-gray-900 dark:text-white mb-1">Secure Payment</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">
-                                Choose from various payment methods including Credit Card, Bank Transfer, E-Wallet
-                                (OVO, GoPay, Dana), and QRIS in the next step.
-                            </p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Choose from various payment methods including Credit Card, Bank Transfer, E-Wallet (OVO, GoPay, Dana), and QRIS in the next step.</p>
                         </div>
                         <!-- </div> -->
                     </div>
 
                     <!-- Action Buttons -->
-                    <div
-                        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                         <div class="flex gap-4">
                             <Button label="Back to Cart" outlined @click="goBack" class="flex-1" />
-                            <Button label="Pay Now" :loading="isProcessingPayment" @click="processPayment"
-                                class="flex-1 bg-red-500 hover:bg-red-600 border-red-500" />
+                            <Button label="Pay Now" :loading="isProcessingPayment" @click="processPayment" class="flex-1 bg-red-500 hover:bg-red-600 border-red-500" />
                         </div>
 
-                        <p class="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
-                            Your payment will be processed securely through Xendit
-                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">Your payment will be processed securely through Xendit</p>
                     </div>
-
                 </div>
             </div>
         </div>

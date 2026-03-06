@@ -26,9 +26,7 @@ onMounted(async () => {
     try {
         const allPizzas = await ProductService.getPizzas();
         // Get available AND popular pizzas only (max 8 items)
-        popularPizzas.value = allPizzas
-            .filter(pizza => pizza.popular && pizza.available)
-            .slice(0, 8);
+        popularPizzas.value = allPizzas.filter((pizza) => pizza.popular && pizza.available).slice(0, 8);
     } catch (error) {
         console.error('Error loading popular pizzas:', error);
     }
@@ -46,79 +44,53 @@ onMounted(async () => {
                 <!-- Popular Products Section -->
                 <div class="relative p-4 md:px-0">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-surface-900 dark:text-surface-0 text-xl font-bold mt-6 mb-0 text-left">
-                            🔥 Popular </h2>
-                        <router-link to="/menu" class="text-papa-red hover:text-red-700 font-medium">
-                            View All →
-                        </router-link>
+                        <h2 class="text-surface-900 dark:text-surface-0 text-xl font-bold mt-6 mb-0 text-left">🔥 Popular</h2>
+                        <router-link to="/menu" class="text-papa-red hover:text-red-700 font-medium"> View All → </router-link>
                     </div>
 
                     <!-- Popular Pizza Container -->
-                    <div
-                        class="popular-pizza overflow-x-auto scrollbar-hide -ml-[14px] -mr-[14px] md:ml-0 md:mr-0 md:overflow-visible">
-                        <PizzaCard v-for="pizza in popularPizzas" :key="pizza.id" :pizza="pizza" variant="popular"
-                            @add-to-cart="addToCart" @show-detail="showPizzaDetail" />
+                    <div class="popular-pizza overflow-x-auto scrollbar-hide -ml-[14px] -mr-[14px] md:ml-0 md:mr-0 md:overflow-visible">
+                        <PizzaCard v-for="pizza in popularPizzas" :key="pizza.id" :pizza="pizza" variant="popular" @add-to-cart="addToCart" @show-detail="showPizzaDetail" />
                     </div>
                 </div>
 
                 <div class="relative p-4 md:px-0 my-8">
-                    <div class="text-surface-900 dark:text-surface-0 text-xl font-bold mb-4 text-left w-full px-2">🤨
-                        Masih
-                        Bingung?
-                        Coba
-                        Baca Ini!</div>
+                    <div class="text-surface-900 dark:text-surface-0 text-xl font-bold mb-4 text-left w-full px-2">🤨 Masih Bingung? Coba Baca Ini!</div>
                     <Accordion value="0">
                         <AccordionPanel value="0">
                             <AccordionHeader>Apa itu Voyee</AccordionHeader>
                             <AccordionContent>
-                                <p class="m-0">
-                                    <b>Voyee</b> adalah Kopi Keliling Pertama di Surabaya yang bisa kamu pesan lewat
-                                    online dan
-                                    langsung
-                                    dikirim ke tampatmu tanpa bayar ongkos kirim.
-                                </p>
+                                <p class="m-0"><b>Voyee</b> adalah Kopi Keliling Pertama di Surabaya yang bisa kamu pesan lewat online dan langsung dikirim ke tampatmu tanpa bayar ongkos kirim.</p>
                             </AccordionContent>
                         </AccordionPanel>
                         <AccordionPanel value="1">
                             <AccordionHeader>Beneran ongkirnya gratis?</AccordionHeader>
                             <AccordionContent>
-                                <p class="m-0">
-                                    Iyaa seriusan! Gratis tanpa ada syarat apapun lagi.
-                                </p>
+                                <p class="m-0">Iyaa seriusan! Gratis tanpa ada syarat apapun lagi.</p>
                             </AccordionContent>
                         </AccordionPanel>
                         <AccordionPanel value="2">
                             <AccordionHeader>Voyee bisa dipesan dari mana aja?</AccordionHeader>
                             <AccordionContent>
-                                <p class="m-0">
-                                    Untuk saat ini kamu bisa pesan dan kirim Kopi Voyee ke 2 kecamatan, yaitu Kecamatan
-                                    Genteng dan
-                                    Kecamatan Gubeng Kota Surabaya.
-                                </p>
+                                <p class="m-0">Untuk saat ini kamu bisa pesan dan kirim Kopi Voyee ke 2 kecamatan, yaitu Kecamatan Genteng dan Kecamatan Gubeng Kota Surabaya.</p>
                             </AccordionContent>
                         </AccordionPanel>
                         <AccordionPanel value="3">
-                            <AccordionHeader>Gimana cara bayar QRIS-nya? Kan QR-Code nya ada di layar hp sendiri?
-                            </AccordionHeader>
+                            <AccordionHeader>Gimana cara bayar QRIS-nya? Kan QR-Code nya ada di layar hp sendiri? </AccordionHeader>
                             <AccordionContent>
                                 <p class="m-0">
-                                    Gampang banget, kamu tinggal screenshot <strong>QR-Code</strong> yang tampil di
-                                    layar, lalu buka
-                                    aplikasi M-Banking. Dan pilih pembayaran dengan QRIS, terakhir upload foto
-                                    screenshot
-                                    <strong>QR-Code</strong> tadi pada menu upload foto.
+                                    Gampang banget, kamu tinggal screenshot <strong>QR-Code</strong> yang tampil di layar, lalu buka aplikasi M-Banking. Dan pilih pembayaran dengan QRIS, terakhir upload foto screenshot <strong>QR-Code</strong> tadi
+                                    pada menu upload foto.
                                 </p>
                             </AccordionContent>
                         </AccordionPanel>
                     </Accordion>
                 </div>
-
             </div>
         </div>
 
         <!-- Product Detail Modal -->
-        <ProductDetailModal :visible="modalVisible" :pizza="selectedPizza"
-            @update:visible="(value) => modalVisible = value" @add-to-cart="addToCart" />
+        <ProductDetailModal :visible="modalVisible" :pizza="selectedPizza" @update:visible="(value) => (modalVisible = value)" @add-to-cart="addToCart" />
     </div>
 </template>
 

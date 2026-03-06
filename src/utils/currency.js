@@ -10,7 +10,7 @@ export const formatCurrency = (amount, removeSpace = true) => {
         currency: 'IDR',
         minimumFractionDigits: 0
     }).format(amount);
-    
+
     // Remove the space between Rp and the number if requested
     return removeSpace ? formatted.replace(/\s/g, '') : formatted;
 };

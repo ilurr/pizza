@@ -1,4 +1,5 @@
 import { BaseApiService } from './ApiClient.js';
+import { getSupabaseClient } from '@/services/supabase/client.js';
 
 export class LocationApiService extends BaseApiService {
     constructor() {
@@ -23,10 +24,10 @@ export class LocationApiService extends BaseApiService {
                 center: { lat: -7.2575, lng: 112.7521 },
                 polygon: [
                     [-7.1554, 112.6094], // Northwest
-                    [-7.1554, 112.8375], // Northeast  
+                    [-7.1554, 112.8375], // Northeast
                     [-7.3549, 112.8375], // Southeast
                     [-7.3549, 112.6094], // Southwest
-                    [-7.1554, 112.6094]  // Close polygon
+                    [-7.1554, 112.6094] // Close polygon
                 ],
                 deliveryFee: 5000,
                 minimumOrder: 50000,
@@ -43,15 +44,15 @@ export class LocationApiService extends BaseApiService {
                 active: true,
                 bounds: {
                     southwest: { lat: -6.3676, lng: 106.6924 },
-                    northeast: { lat: -6.1840, lng: 106.8304 }
+                    northeast: { lat: -6.184, lng: 106.8304 }
                 },
                 center: { lat: -6.2758, lng: 106.7614 },
                 polygon: [
-                    [-6.1840, 106.6924], // Northwest
-                    [-6.1840, 106.8304], // Northeast  
+                    [-6.184, 106.6924], // Northwest
+                    [-6.184, 106.8304], // Northeast
                     [-6.3676, 106.8304], // Southeast
                     [-6.3676, 106.6924], // Southwest
-                    [-6.1840, 106.6924]  // Close polygon
+                    [-6.184, 106.6924] // Close polygon
                 ],
                 deliveryFee: 8000,
                 minimumOrder: 75000,
@@ -127,7 +128,7 @@ export class LocationApiService extends BaseApiService {
                 city: 'Tangerang Selatan',
                 coverageAreaId: 'tangerang_selatan',
                 active: true,
-                center: { lat: -6.2654, lng: 106.6990 },
+                center: { lat: -6.2654, lng: 106.699 },
                 deliveryFee: 8000,
                 estimatedDeliveryTime: 30
             },
@@ -144,105 +145,179 @@ export class LocationApiService extends BaseApiService {
         ];
     }
 
+    async getCoverageAreasFromSupabase(filters = {}) {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+            return this.createMockError('Supabase not configured', 500);
+        }
+
+        let query = supabase.from('coverage_areas').select('*').order('city', { ascending: true });
+
+        if (filters.active !== undefined) query = query.eq('active', filters.active);
+        if (filters.city) query = query.ilike('city', `%${filters.city}%`);
+        if (filters.province) query = query.ilike('province', `%${filters.province}%`);
+
+        const { data: rows, error } = await query;
+        if (error) {
+            return this.createMockError(error.message || 'Failed to fetch coverage areas', 500);
+        }
+
+        const areas = (rows || []).map((row) => ({
+            id: row.id,
+            city: row.city,
+            province: row.province,
+            country: row.country,
+            active: row.active,
+            bounds: {
+                southwest: { lat: row.bounds_southwest_lat, lng: row.bounds_southwest_lng },
+                northeast: { lat: row.bounds_northeast_lat, lng: row.bounds_northeast_lng }
+            },
+            center: { lat: row.center_lat, lng: row.center_lng },
+            polygon: row.polygon || [],
+            deliveryFee: row.delivery_fee,
+            minimumOrder: row.minimum_order,
+            estimatedDeliveryTime: row.estimated_delivery_time,
+            maxDeliveryRadius: row.max_delivery_radius,
+            timezone: row.timezone,
+            currency: row.currency
+        }));
+
+        return this.createMockResponse({
+            coverageAreas: areas,
+            total: areas.length,
+            filters
+        });
+    }
+
     // Get all coverage areas
     async getCoverageAreas(filters = {}) {
+        if (this.dataSource === 'supabase') {
+            return await this.getCoverageAreasFromSupabase(filters);
+        }
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             let filteredAreas = [...this.mockCoverageAreas];
-            
+
             // Apply filters
             if (filters.active !== undefined) {
-                filteredAreas = filteredAreas.filter(area => area.active === filters.active);
+                filteredAreas = filteredAreas.filter((area) => area.active === filters.active);
             }
-            
+
             if (filters.city) {
-                filteredAreas = filteredAreas.filter(area => 
-                    area.city.toLowerCase().includes(filters.city.toLowerCase())
-                );
+                filteredAreas = filteredAreas.filter((area) => area.city.toLowerCase().includes(filters.city.toLowerCase()));
             }
-            
+
             if (filters.province) {
-                filteredAreas = filteredAreas.filter(area => 
-                    area.province.toLowerCase().includes(filters.province.toLowerCase())
-                );
+                filteredAreas = filteredAreas.filter((area) => area.province.toLowerCase().includes(filters.province.toLowerCase()));
             }
-            
+
             return this.createMockResponse({
                 coverageAreas: filteredAreas,
                 total: filteredAreas.length,
                 filters: filters
             });
         }
-        
+
         return await this.get(`${this.endpoint}/coverage`, filters);
     }
 
     // Get specific coverage area by ID
     async getCoverageArea(areaId) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
+            const { data: row, error } = await supabase.from('coverage_areas').select('*').eq('id', areaId).maybeSingle();
+            if (error || !row) {
+                return this.createMockError('Coverage area not found', 404);
+            }
+            const area = {
+                id: row.id,
+                city: row.city,
+                province: row.province,
+                country: row.country,
+                active: row.active,
+                bounds: {
+                    southwest: { lat: row.bounds_southwest_lat, lng: row.bounds_southwest_lng },
+                    northeast: { lat: row.bounds_northeast_lat, lng: row.bounds_northeast_lng }
+                },
+                center: { lat: row.center_lat, lng: row.center_lng },
+                polygon: row.polygon || [],
+                deliveryFee: row.delivery_fee,
+                minimumOrder: row.minimum_order,
+                estimatedDeliveryTime: row.estimated_delivery_time,
+                maxDeliveryRadius: row.max_delivery_radius,
+                timezone: row.timezone,
+                currency: row.currency
+            };
+            const districts = this.mockDistricts.filter((d) => d.coverageAreaId === area.id);
+            return this.createMockResponse({
+                coverageArea: area,
+                districts,
+                totalDistricts: districts.length
+            });
+        }
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            const area = this.mockCoverageAreas.find(a => a.id === areaId);
-            
+
+            const area = this.mockCoverageAreas.find((a) => a.id === areaId);
+
             if (!area) {
                 return this.createMockError('Coverage area not found', 404);
             }
-            
+
             // Include districts within this area
-            const districts = this.mockDistricts.filter(d => d.coverageAreaId === areaId);
-            
+            const districts = this.mockDistricts.filter((d) => d.coverageAreaId === areaId);
+
             return this.createMockResponse({
                 coverageArea: area,
                 districts: districts,
                 totalDistricts: districts.length
             });
         }
-        
+
         return await this.get(`${this.endpoint}/coverage/${areaId}`);
     }
 
     // Check if location is within coverage
     async checkCoverage(location) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-            
+        if (this.dataSource === 'supabase') {
+            const res = await this.getCoverageAreasFromSupabase({ active: true });
+            if (!res.success) return res;
+            const areas = res.data.coverageAreas || [];
+
             const { lat, lng } = location;
             let coverageArea = null;
             let isWithinCoverage = false;
             let nearestDistrict = null;
             let estimatedDeliveryTime = null;
             let deliveryFee = null;
-            
-            // Check each coverage area
-            for (const area of this.mockCoverageAreas) {
+
+            for (const area of areas) {
                 if (!area.active) continue;
-                
                 if (this.isPointInPolygon({ lat, lng }, area.polygon)) {
                     coverageArea = area;
                     isWithinCoverage = true;
-                    
-                    // Find nearest district
+
                     let minDistance = Infinity;
                     for (const district of this.mockDistricts) {
                         if (district.coverageAreaId === area.id && district.active) {
-                            const distance = this.calculateDistance(
-                                lat, lng, 
-                                district.center.lat, district.center.lng
-                            );
+                            const distance = this.calculateDistance(lat, lng, district.center.lat, district.center.lng);
                             if (distance < minDistance) {
                                 minDistance = distance;
                                 nearestDistrict = district;
                             }
                         }
                     }
-                    
+
                     estimatedDeliveryTime = nearestDistrict?.estimatedDeliveryTime || area.estimatedDeliveryTime;
                     deliveryFee = nearestDistrict?.deliveryFee || area.deliveryFee;
                     break;
                 }
             }
-            
+
             return this.createMockResponse({
                 isWithinCoverage,
                 coverageArea,
@@ -253,7 +328,53 @@ export class LocationApiService extends BaseApiService {
                 checkedAt: new Date().toISOString()
             });
         }
-        
+        if (this.useMockApi) {
+            await this.mockDelay();
+
+            const { lat, lng } = location;
+            let coverageArea = null;
+            let isWithinCoverage = false;
+            let nearestDistrict = null;
+            let estimatedDeliveryTime = null;
+            let deliveryFee = null;
+
+            // Check each coverage area
+            for (const area of this.mockCoverageAreas) {
+                if (!area.active) continue;
+
+                if (this.isPointInPolygon({ lat, lng }, area.polygon)) {
+                    coverageArea = area;
+                    isWithinCoverage = true;
+
+                    // Find nearest district
+                    let minDistance = Infinity;
+                    for (const district of this.mockDistricts) {
+                        if (district.coverageAreaId === area.id && district.active) {
+                            const distance = this.calculateDistance(lat, lng, district.center.lat, district.center.lng);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                nearestDistrict = district;
+                            }
+                        }
+                    }
+
+                    estimatedDeliveryTime = nearestDistrict?.estimatedDeliveryTime || area.estimatedDeliveryTime;
+                    deliveryFee = nearestDistrict?.deliveryFee || area.deliveryFee;
+                    break;
+                }
+            }
+
+            return this.createMockResponse({
+                isWithinCoverage,
+                coverageArea,
+                nearestDistrict,
+                estimatedDeliveryTime,
+                deliveryFee,
+                location: { lat, lng },
+                checkedAt: new Date().toISOString()
+            });
+        }
+
         return await this.post(`${this.endpoint}/check-coverage`, { location });
     }
 
@@ -261,13 +382,10 @@ export class LocationApiService extends BaseApiService {
     async geocodeAddress(address) {
         if (this.useMockApi) {
             await this.mockDelay(800); // Simulate geocoding delay
-            
+
             // Simple mock geocoding - find matching address
-            const matchingAddress = this.mockAddresses.find(addr => 
-                addr.address.toLowerCase().includes(address.toLowerCase()) ||
-                addr.formatted.toLowerCase().includes(address.toLowerCase())
-            );
-            
+            const matchingAddress = this.mockAddresses.find((addr) => addr.address.toLowerCase().includes(address.toLowerCase()) || addr.formatted.toLowerCase().includes(address.toLowerCase()));
+
             if (matchingAddress) {
                 return this.createMockResponse({
                     coordinates: matchingAddress.coordinates,
@@ -283,14 +401,14 @@ export class LocationApiService extends BaseApiService {
                     source: 'mock_geocoder'
                 });
             }
-            
+
             // Generate approximate coordinates for unknown addresses
             // Default to Surabaya area for Indonesian addresses
             const mockCoordinates = {
                 lat: -7.2575 + (Math.random() - 0.5) * 0.1,
                 lng: 112.7521 + (Math.random() - 0.5) * 0.1
             };
-            
+
             return this.createMockResponse({
                 coordinates: mockCoordinates,
                 formattedAddress: address,
@@ -306,7 +424,7 @@ export class LocationApiService extends BaseApiService {
                 isApproximate: true
             });
         }
-        
+
         return await this.post(`${this.endpoint}/geocode`, { address });
     }
 
@@ -314,25 +432,23 @@ export class LocationApiService extends BaseApiService {
     async reverseGeocode(coordinates) {
         if (this.useMockApi) {
             await this.mockDelay(600);
-            
+
             const { lat, lng } = coordinates;
-            
+
             // Find nearest known address
             let nearestAddress = null;
             let minDistance = Infinity;
-            
+
             for (const addr of this.mockAddresses) {
-                const distance = this.calculateDistance(
-                    lat, lng,
-                    addr.coordinates.lat, addr.coordinates.lng
-                );
+                const distance = this.calculateDistance(lat, lng, addr.coordinates.lat, addr.coordinates.lng);
                 if (distance < minDistance) {
                     minDistance = distance;
                     nearestAddress = addr;
                 }
             }
-            
-            if (nearestAddress && minDistance < 1) { // Within 1km
+
+            if (nearestAddress && minDistance < 1) {
+                // Within 1km
                 return this.createMockResponse({
                     formattedAddress: nearestAddress.formatted,
                     addressComponents: {
@@ -347,7 +463,7 @@ export class LocationApiService extends BaseApiService {
                     source: 'mock_geocoder'
                 });
             }
-            
+
             // Generate approximate address
             const mockAddress = {
                 streetAddress: `Jl. Mock Street No. ${Math.floor(Math.random() * 999) + 1}`,
@@ -356,7 +472,7 @@ export class LocationApiService extends BaseApiService {
                 postalCode: '60000',
                 country: 'Indonesia'
             };
-            
+
             return this.createMockResponse({
                 formattedAddress: `${mockAddress.streetAddress}, ${mockAddress.city}, ${mockAddress.province} ${mockAddress.postalCode}`,
                 addressComponents: mockAddress,
@@ -365,7 +481,7 @@ export class LocationApiService extends BaseApiService {
                 isApproximate: true
             });
         }
-        
+
         return await this.post(`${this.endpoint}/reverse-geocode`, { coordinates });
     }
 
@@ -373,20 +489,18 @@ export class LocationApiService extends BaseApiService {
     async getDistricts(coverageAreaId, filters = {}) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
-            let districts = this.mockDistricts.filter(d => d.coverageAreaId === coverageAreaId);
-            
+
+            let districts = this.mockDistricts.filter((d) => d.coverageAreaId === coverageAreaId);
+
             // Apply filters
             if (filters.active !== undefined) {
-                districts = districts.filter(d => d.active === filters.active);
+                districts = districts.filter((d) => d.active === filters.active);
             }
-            
+
             if (filters.name) {
-                districts = districts.filter(d => 
-                    d.name.toLowerCase().includes(filters.name.toLowerCase())
-                );
+                districts = districts.filter((d) => d.name.toLowerCase().includes(filters.name.toLowerCase()));
             }
-            
+
             return this.createMockResponse({
                 districts: districts,
                 coverageAreaId: coverageAreaId,
@@ -394,7 +508,7 @@ export class LocationApiService extends BaseApiService {
                 filters: filters
             });
         }
-        
+
         return await this.get(`${this.endpoint}/coverage/${coverageAreaId}/districts`, filters);
     }
 
@@ -402,24 +516,24 @@ export class LocationApiService extends BaseApiService {
     async calculateDeliveryInfo(location, orderValue = 0) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const coverageCheck = await this.checkCoverage(location);
-            
+
             if (!coverageCheck.data.isWithinCoverage) {
                 return this.createMockError('Location outside delivery area', 400);
             }
-            
+
             const { coverageArea, nearestDistrict, estimatedDeliveryTime, deliveryFee } = coverageCheck.data;
-            
+
             // Apply minimum order checks
             let finalDeliveryFee = deliveryFee;
             let minimumOrderMet = orderValue >= coverageArea.minimumOrder;
-            
+
             // Free delivery for orders above certain threshold
             if (orderValue >= 100000) {
                 finalDeliveryFee = 0;
             }
-            
+
             return this.createMockResponse({
                 deliveryFee: finalDeliveryFee,
                 originalDeliveryFee: deliveryFee,
@@ -433,13 +547,15 @@ export class LocationApiService extends BaseApiService {
                     city: coverageArea.city,
                     province: coverageArea.province
                 },
-                district: nearestDistrict ? {
-                    id: nearestDistrict.id,
-                    name: nearestDistrict.name
-                } : null
+                district: nearestDistrict
+                    ? {
+                          id: nearestDistrict.id,
+                          name: nearestDistrict.name
+                      }
+                    : null
             });
         }
-        
+
         return await this.post(`${this.endpoint}/calculate-delivery`, { location, orderValue });
     }
 
@@ -447,28 +563,25 @@ export class LocationApiService extends BaseApiService {
     isPointInPolygon(point, polygon) {
         const { lat, lng } = point;
         let inside = false;
-        
+
         for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
             const [lat1, lng1] = polygon[i];
             const [lat2, lng2] = polygon[j];
-            
-            if (((lat1 > lat) !== (lat2 > lat)) &&
-                (lng < (lng2 - lng1) * (lat - lat1) / (lat2 - lat1) + lng1)) {
+
+            if (lat1 > lat !== lat2 > lat && lng < ((lng2 - lng1) * (lat - lat1)) / (lat2 - lat1) + lng1) {
                 inside = !inside;
             }
         }
-        
+
         return inside;
     }
 
     // Helper method to calculate distance between two points
     calculateDistance(lat1, lng1, lat2, lng2) {
         const R = 6371; // Earth's radius in km
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLng = (lng2 - lng1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
@@ -477,52 +590,50 @@ export class LocationApiService extends BaseApiService {
     async searchLocations(query, filters = {}) {
         if (this.useMockApi) {
             await this.mockDelay(400);
-            
+
             const searchLower = query.toLowerCase();
             let results = [];
-            
+
             // Search in addresses
-            const matchingAddresses = this.mockAddresses.filter(addr =>
-                addr.address.toLowerCase().includes(searchLower) ||
-                addr.formatted.toLowerCase().includes(searchLower) ||
-                addr.city.toLowerCase().includes(searchLower) ||
-                addr.province.toLowerCase().includes(searchLower)
+            const matchingAddresses = this.mockAddresses.filter(
+                (addr) => addr.address.toLowerCase().includes(searchLower) || addr.formatted.toLowerCase().includes(searchLower) || addr.city.toLowerCase().includes(searchLower) || addr.province.toLowerCase().includes(searchLower)
             );
-            
-            results = results.concat(matchingAddresses.map(addr => ({
-                type: 'address',
-                id: addr.id,
-                name: addr.formatted,
-                address: addr.address,
-                coordinates: addr.coordinates,
-                city: addr.city,
-                province: addr.province,
-                relevance: this.calculateSearchRelevance(searchLower, addr.formatted)
-            })));
-            
+
+            results = results.concat(
+                matchingAddresses.map((addr) => ({
+                    type: 'address',
+                    id: addr.id,
+                    name: addr.formatted,
+                    address: addr.address,
+                    coordinates: addr.coordinates,
+                    city: addr.city,
+                    province: addr.province,
+                    relevance: this.calculateSearchRelevance(searchLower, addr.formatted)
+                }))
+            );
+
             // Search in districts
-            const matchingDistricts = this.mockDistricts.filter(district =>
-                district.name.toLowerCase().includes(searchLower) ||
-                district.city.toLowerCase().includes(searchLower)
+            const matchingDistricts = this.mockDistricts.filter((district) => district.name.toLowerCase().includes(searchLower) || district.city.toLowerCase().includes(searchLower));
+
+            results = results.concat(
+                matchingDistricts.map((district) => ({
+                    type: 'district',
+                    id: district.id,
+                    name: district.name,
+                    address: `${district.name}, ${district.city}`,
+                    coordinates: district.center,
+                    city: district.city,
+                    relevance: this.calculateSearchRelevance(searchLower, district.name)
+                }))
             );
-            
-            results = results.concat(matchingDistricts.map(district => ({
-                type: 'district',
-                id: district.id,
-                name: district.name,
-                address: `${district.name}, ${district.city}`,
-                coordinates: district.center,
-                city: district.city,
-                relevance: this.calculateSearchRelevance(searchLower, district.name)
-            })));
-            
+
             // Sort by relevance
             results.sort((a, b) => b.relevance - a.relevance);
-            
+
             // Apply limit
             const limit = filters.limit || 10;
             results = results.slice(0, limit);
-            
+
             return this.createMockResponse({
                 results: results,
                 query: query,
@@ -530,7 +641,7 @@ export class LocationApiService extends BaseApiService {
                 filters: filters
             });
         }
-        
+
         return await this.get(`${this.endpoint}/search`, { q: query, ...filters });
     }
 
@@ -540,15 +651,13 @@ export class LocationApiService extends BaseApiService {
         if (textLower === query) return 1.0;
         if (textLower.startsWith(query)) return 0.9;
         if (textLower.includes(query)) return 0.7;
-        
+
         // Calculate word matches
         const queryWords = query.split(' ');
         const textWords = textLower.split(' ');
-        const matches = queryWords.filter(word => 
-            textWords.some(textWord => textWord.includes(word))
-        );
-        
-        return matches.length / queryWords.length * 0.5;
+        const matches = queryWords.filter((word) => textWords.some((textWord) => textWord.includes(word)));
+
+        return (matches.length / queryWords.length) * 0.5;
     }
 }
 

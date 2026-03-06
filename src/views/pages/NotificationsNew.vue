@@ -39,15 +39,12 @@ const handleClearAll = () => {
     <div class="bg-white dark:bg-neutral-900">
         <div class="landing-wrapper overflow-hidden">
             <!-- Topbar for customer-facing pages -->
-            <app-topbar v-if="!isDashboard" variant="page-header" page-title="Notifications"
-                :show-notification-actions="true" :notification-stats="notificationStats" @back="goBack"
-                @mark-all-read="handleMarkAllRead" @clear-all="handleClearAll" />
+            <app-topbar v-if="!isDashboard" variant="page-header" page-title="Notifications" :show-notification-actions="true" :notification-stats="notificationStats" @back="goBack" @mark-all-read="handleMarkAllRead" @clear-all="handleClearAll" />
 
             <div :class="['relative mx-auto mb-32', isDashboard ? 'pt-0' : 'lg:mx-80 pt-16 md:pt-16']">
                 <div class="relative md:py-4">
                     <!-- Shared Notification Content -->
-                    <NotificationContent :variant="isDashboard ? 'dashboard' : 'customer'" :show-stats="isDashboard"
-                        @mark-all-read="handleMarkAllRead" @clear-all="handleClearAll" />
+                    <NotificationContent :variant="isDashboard ? 'dashboard' : 'customer'" :show-stats="isDashboard" @mark-all-read="handleMarkAllRead" @clear-all="handleClearAll" />
                 </div>
             </div>
         </div>
