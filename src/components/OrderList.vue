@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CardListSkeleton from '@/components/CardListSkeleton.vue';
 import { defineAsyncComponent, ref } from 'vue';
 
 const OrderTrackingModal = defineAsyncComponent(() => import('@/components/OrderTrackingModal.vue'));
@@ -21,6 +22,7 @@ interface Props {
 	orders: any[];
 	emptyState: EmptyStateConfig;
 	showTracking?: boolean;
+	loading?: boolean;
 }
 
 defineProps<Props>();
@@ -85,8 +87,11 @@ const handleCardClick = (order: any) => {
 
 <template>
 	<div class="space-y-4">
+		<!-- Loading State -->
+		<CardListSkeleton v-if="loading" :count="3" />
+
 		<!-- Empty State -->
-		<div v-if="orders.length === 0" class="text-center py-8">
+		<div v-else-if="orders.length === 0" class="text-center py-8">
 			<div class="mb-4">
 				<i v-if="emptyState.iconType === 'icon'" :class="emptyState.iconClass"></i>
 				<img v-else-if="emptyState.iconType === 'image'" :src="emptyState.imageSrc" :alt="emptyState.title"

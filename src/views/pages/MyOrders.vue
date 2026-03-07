@@ -19,7 +19,8 @@ const { fetchActiveOrders } = useActiveOrders();
 const activeTab = ref("1"); // "1" for "On Progress", "0" for "History"
 const orderHistory = ref([]);
 const onProgressOrders = ref([]);
-const isLoading = ref(false);
+// Start loading when authenticated so we don't flash empty state before fetch
+const isLoading = ref(isAuthenticated());
 
 // Empty states for authenticated users (no orders)
 const historyEmptyState = {
@@ -132,13 +133,13 @@ onMounted(async () => {
 						<!-- History Tab Panel -->
 						<TabPanel value="0">
 							<OrderList :orders="orderHistory" :empty-state="currentHistoryEmptyState" :show-tracking="false"
-								@login-required="goToLogin" />
+								:loading="isLoading" @login-required="goToLogin" />
 						</TabPanel>
 
 						<!-- On Progress Tab Panel -->
 						<TabPanel value="1">
 							<OrderList :orders="onProgressOrders" :empty-state="currentProgressEmptyState" :show-tracking="true"
-								@login-required="goToLogin" />
+								:loading="isLoading" @login-required="goToLogin" />
 						</TabPanel>
 					</TabPanels>
 				</Tabs>

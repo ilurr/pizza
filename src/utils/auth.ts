@@ -1,10 +1,12 @@
-import { useUserStore } from '@/stores/userStore';
 import { getSupabaseClient } from '@/services/supabase/client.js';
+import { useUserStore } from '@/stores/userStore';
 
 export interface User {
     id: number;
     username: string;
     email: string;
+    fullname?: string;
+    avatar?: string;
 }
 
 export function isAuthenticated(): boolean {
@@ -19,11 +21,7 @@ export async function login(identifier: string, password: string): Promise<User>
         }
 
         // Look up user in Supabase app_users table (dummy auth; passwords are plain text).
-        const { data: userRow, error } = await supabase
-            .from('app_users')
-            .select('*')
-            .or(`email.eq.${identifier},username.eq.${identifier}`)
-            .maybeSingle();
+        const { data: userRow, error } = await supabase.from('app_users').select('*').or(`email.eq.${identifier},username.eq.${identifier}`).maybeSingle();
 
         if (error) {
             throw new Error(error.message || 'Failed to contact auth server');
@@ -37,6 +35,8 @@ export async function login(identifier: string, password: string): Promise<User>
             id: userRow.id,
             username: userRow.username,
             email: userRow.email,
+            fullname: userRow.fullname,
+            avatar: userRow.avatar || '',
             role: { type: userRow.role_type }
         };
 
