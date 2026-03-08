@@ -1,21 +1,15 @@
 /**
  * Central export for all mock/dummy data.
- * Use this when you need to reference mock data from a single place.
- * API services and auth should import from here or from the specific JSON files.
+ * Driver earnings use Supabase (driver_daily_deposits); driver stock uses Supabase (driver_stock, stock_products).
+ * No local driverStock JSON.
  */
 
 import driversData from './drivers.json';
-import driverStockData from './driverStock.json';
-import driverEarningsData from './driverEarnings.json';
-import driverTransactionsData from './driverTransactions.json';
 import driverNearbyDriversData from './driverNearbyDrivers.json';
 
-export { driversData, driverStockData, driverEarningsData, driverTransactionsData, driverNearbyDriversData };
+export { driversData, driverNearbyDriversData };
 
 export default {
     drivers: driversData,
-    driverStock: driverStockData,
-    driverEarnings: driverEarningsData,
-    driverTransactions: driverTransactionsData,
     driverNearbyDrivers: driverNearbyDriversData
 };

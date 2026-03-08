@@ -1,14 +1,30 @@
 <script setup lang="ts">
-import { defineAsyncComponent, computed, ref } from 'vue';
+import CartContent from '@/components/shared/CartContent.vue';
 import { useCartStore } from '@/stores/cartStore.js';
 import { useToast } from 'primevue/usetoast';
+import { computed, defineAsyncComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const PromoModal = defineAsyncComponent(() => import('@/components/PromoModal.vue'));
 
+interface CartItem {
+    id: string;
+    type?: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image?: string;
+}
+
 interface Props {
     visible: boolean;
+    /** 'user' = cartStore (default), 'offline' = driver cashier with Cash/QRIS + Complete sale */
+    variant?: 'user' | 'offline';
+    /** Required when variant='offline': the driver's local cart items */
+    items?: CartItem[];
 }
+
+const props = withDefaults(defineProps<Props>(), { variant: 'user' });
 
 interface AppliedPromo {
     id: string;
@@ -25,10 +41,12 @@ interface Discount {
     formattedAmount: string;
 }
 
-const props = defineProps<Props>();
 const emit = defineEmits<{
     'update:visible': [value: boolean];
     'checkout': [];
+    'update-quantity': [item: CartItem, delta: number];
+    'remove-item': [item: CartItem];
+    'complete-sale': [payload: { paymentMethod: 'cash' | 'qris' }];
 }>();
 
 const router = useRouter();
@@ -37,8 +55,13 @@ const toast = useToast();
 
 // Promo state
 const showPromoModal = ref(false);
+// Offline variant: payment method and derived state
+const paymentMethod = ref<'cash' | 'qris'>('cash');
+const isOffline = computed(() => props.variant === 'offline');
+const displayItems = computed(() => (isOffline.value ? (props.items || []) : cartStore.items));
+const isEmpty = computed(() => (isOffline.value ? !displayItems.value?.length : cartStore.isEmpty));
 
-// Computed properties
+// Computed properties (user cart store)
 const subtotal = computed(() => cartStore.totalPrice);
 const discountAmount = computed(() => cartStore.discountAmount);
 const finalTotal = computed(() => cartStore.finalTotal);
@@ -84,7 +107,7 @@ const removePromo = () => {
 // Validate current promo when cart total changes
 const validateCurrentPromo = async () => {
     const result = await cartStore.validateCurrentPromo();
-    
+
     if (!result.valid && result.message) {
         toast.add({
             severity: 'warn',
@@ -95,37 +118,36 @@ const validateCurrentPromo = async () => {
     }
 };
 
-const updateQuantity = (itemId: string, newQuantity: number) => {
-    cartStore.updateQuantity(itemId, newQuantity);
+const onUpdateQuantity = (item: CartItem, delta: number) => {
+    if (isOffline.value) {
+        emit('update-quantity', item, delta);
+    } else {
+        const newQty = item.quantity + delta;
+        cartStore.updateQuantity(item.id, newQty);
+        if (newQty === 0) {
+            toast.add({ severity: 'info', detail: 'Item has been removed from your cart', life: 3000, group: 'cart' });
+        }
+        validateCurrentPromo();
+    }
+};
 
-    if (newQuantity === 0) {
+const onRemoveItem = (item: CartItem) => {
+    if (isOffline.value) {
+        emit('remove-item', item);
+    } else {
+        cartStore.removeFromCart(item.id);
         toast.add({
             severity: 'info',
-            detail: 'Item has been removed from your cart',
+            detail: `${item.name} has been removed from your cart`,
             life: 3000,
             group: 'cart'
         });
+        validateCurrentPromo();
     }
-
-    // Validate promo after cart change
-    validateCurrentPromo();
-};
-
-const removeItem = (itemId: string, itemName: string) => {
-    cartStore.removeFromCart(itemId);
-    toast.add({
-        severity: 'info',
-        detail: `${itemName} has been removed from your cart`,
-        life: 3000,
-        group: 'cart'
-    });
-
-    // Validate promo after cart change
-    validateCurrentPromo();
 };
 
 const proceedToCheckout = () => {
-    if (cartStore.isEmpty) {
+    if (isEmpty.value) {
         toast.add({
             severity: 'warn',
             detail: 'Please add items to your cart before checkout',
@@ -134,9 +156,13 @@ const proceedToCheckout = () => {
         });
         return;
     }
-
-    // Navigate to payment summary page
     router.push('/payment-summary');
+    closeModal();
+};
+
+const onCompleteSale = () => {
+    if (isEmpty.value) return;
+    emit('complete-sale', { paymentMethod: paymentMethod.value });
     closeModal();
 };
 
@@ -146,127 +172,92 @@ const proceedToCheckout = () => {
     <Dialog :visible="visible" modal class="dialog-flex-end" header="Your Order"
         :style="{ width: '90vw', maxWidth: '600px' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
         @update:visible="closeModal">
-        <!-- Empty Cart State -->
-        <div v-if="cartStore.isEmpty" class="text-center py-8">
-            <i class="pi pi-shopping-cart !text-6xl text-gray-300 mb-0"></i>
-            <h3 class="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                Your cart is empty
-            </h3>
-            <p class="text-gray-500 dark:text-gray-500 mb-6">
-                Add some delicious pizzas to get started!
-            </p>
-            <Button label="Pick a Pizza" icon="pi pi-search" @click="closeModal"
-                class="bg-red-500 hover:bg-red-600 border-red-500" />
-        </div>
-
-        <!-- Cart Items -->
-        <div v-else class="space-y-4">
-            <!-- Cart Items List -->
-            <div class="space-y-3">
-                <div v-for="item in cartStore.items" :key="item.id"
-                    class="flex items-center space-x-4 py-2 border-b border-surface">
-                    <!-- Pizza Image -->
-                    <div
-                        class="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i class="pi pi-image text-2xl text-gray-400" v-if="!item.image"></i>
-                        <img v-else :src="item.image" :alt="item.name" loading="lazy"
-                            class="w-full h-full object-cover rounded-lg" />
+        <CartContent :items="displayItems" :final-total="isOffline ? undefined : finalTotal"
+            :show-items-summary="!isOffline"
+            :empty-message="isOffline ? 'Add items from the list to get started.' : 'Add some delicious pizzas to get started!'"
+            @update-quantity="onUpdateQuantity" @remove-item="onRemoveItem">
+            <template #empty-action>
+                <Button v-if="!isOffline" label="Pick a Pizza" icon="pi pi-search" @click="closeModal"
+                    class="bg-red-500 hover:bg-red-600 border-red-500" />
+            </template>
+            <template #summary-extra>
+                <!-- Online only: delivery + promo. Offline cashier has no discount/coupon. -->
+                <template v-if="!isOffline">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-600 dark:text-gray-400">Delivery Fee</span>
+                        <span class="font-medium text-green-600">FREE</span>
                     </div>
-
-                    <!-- Item Details -->
-                    <div class="flex-1 min-w-0">
-                        <h4 class="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-0 text-base">
-                            {{ item.name }}
-                        </h4>
-                        <!-- <p class="text-sm text-gray-600 dark:text-gray-400 truncate">
-                            {{ item.description }}
-                        </p> -->
-                        <p class="text-sm font-medium text-red-600 dark:text-red-400">
-                            {{ formatCurrency(item.price) }}
-                        </p>
-                    </div>
-
-                    <!-- Quantity Controls -->
-                    <div class="flex items-center space-x-2 flex-shrink-0">
-                        <Button icon="pi pi-minus" size="small" severity="secondary" outlined
-                            @click="updateQuantity(item.id, item.quantity - 1)" :disabled="item.quantity <= 1"
-                            class="w-8 h-8" />
-                        <span class="w-4 text-center font-medium">{{ item.quantity }}</span>
-                        <Button icon="pi pi-plus" size="small" severity="secondary" outlined
-                            @click="updateQuantity(item.id, item.quantity + 1)" class="w-8 h-8" />
-                    </div>
-
-                    <!-- Remove Button -->
-                    <Button icon="pi pi-trash" size="small" outlined severity="danger"
-                        @click="removeItem(item.id, item.name)" class="w-8 h-8" />
-                </div>
-            </div>
-
-            <!-- Order Summary -->
-            <div class="relative">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-gray-600 dark:text-gray-400">Items ({{ cartStore.totalItems }})</span>
-                    <span class="font-medium">{{ formattedSubtotal }}</span>
-                </div>
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-gray-600 dark:text-gray-400">Delivery Fee</span>
-                    <span class="font-medium text-green-600">FREE</span>
-                </div>
-
-                <!-- Promo Section -->
-                <div class="flex justify-end mb-2">
-                    <!-- Applied Promo -->
-                    <div v-if="cartStore.appliedPromo"
-                        class="flex w-full justify-between items-center my-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div class="flex items-center space-x-2">
-                            <i class="pi pi-tag text-blue-600"></i>
-                            <div>
-                                <span class="text-sm font-medium text-blue-800 dark:text-blue-200">{{
-                                    cartStore.appliedPromo.code }}</span>
-                                <p class="text-xs text-blue-600 dark:text-blue-400">{{ cartStore.appliedPromo.title }}</p>
+                    <div class="flex justify-end mb-2">
+                        <div v-if="cartStore.appliedPromo"
+                            class="flex w-full justify-between items-center my-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div class="flex items-center space-x-2">
+                                <i class="pi pi-tag text-blue-600"></i>
+                                <div>
+                                    <span class="text-sm font-medium text-blue-800 dark:text-blue-200">{{
+                                        cartStore.appliedPromo.code }}</span>
+                                    <p class="text-xs text-blue-600 dark:text-blue-400">{{ cartStore.appliedPromo.title
+                                        }}</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <!-- <span class="font-medium text-blue-600">-{{ formattedDiscount }}</span> -->
                             <Button icon="pi pi-times" size="small" text severity="secondary" @click="removePromo"
                                 class="w-6 h-6 text-gray-400 hover:text-red-500" />
                         </div>
+                        <Button v-else label="Apply Promo Code" icon="pi pi-tag" outlined severity="info" size="small"
+                            @click="openPromoModal"
+                            class="w-auto my-2 border-dashed hover:border-red-500 hover:text-red-500" />
                     </div>
-
-                    <!-- Promo Button -->
-                    <Button v-if="!cartStore.appliedPromo" label="Apply Promo Code" icon="pi pi-tag" outlined severity="info"
-                        size="small" @click="openPromoModal"
-                        class="w-auto my-2 border-dashed hover:border-red-500 hover:text-red-500" />
-                </div>
-
-                <!-- Discount Line -->
-                <div v-if="cartStore.promoDiscount" class="flex justify-between items-center mb-2">
-                    <span class="text-gray-600 dark:text-gray-400">Discount</span>
-                    <span class="font-medium text-green-600">-{{ formattedDiscount }}</span>
-                </div>
-
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-lg font-semibold">Total</span>
-                        <span class="text-lg font-bold text-red-600">{{ formattedFinalTotal }}</span>
+                    <div v-if="cartStore.promoDiscount" class="flex justify-between items-center mb-2">
+                        <span class="text-gray-600 dark:text-gray-400">Discount</span>
+                        <span class="font-medium text-green-600">-{{ formattedDiscount }}</span>
+                    </div>
+                </template>
+            </template>
+            <!-- After total: Payment method (offline only) -->
+            <template #footer>
+                <div v-if="isOffline" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <p class="text-lg font-semibold text-gray-700 dark:text-gray-300 my-3">Payment method</p>
+                    <div class="flex gap-3" role="radiogroup" aria-label="Payment method">
+                        <label :class="[
+                            'flex-1 flex items-center justify-center gap-2 py-1 px-4 rounded-xl border transition-colors cursor-pointer',
+                            paymentMethod === 'cash'
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-500'
+                        ]">
+                            <input type="radio" name="offline-payment" value="cash" v-model="paymentMethod"
+                                class="sr-only" />
+                            <i class="pi pi-money-bill text-2xl"></i>
+                            <span class="font-semibold">Cash</span>
+                        </label>
+                        <label :class="[
+                            'flex-1 flex items-center justify-center gap-2 py-1 px-4 rounded-xl border transition-colors cursor-pointer',
+                            paymentMethod === 'qris'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-500'
+                        ]">
+                            <input type="radio" name="offline-payment" value="qris" v-model="paymentMethod"
+                                class="sr-only" />
+                            <i class="pi pi-qrcode text-2xl"></i>
+                            <span class="font-semibold">QRIS</span>
+                        </label>
                     </div>
                 </div>
-            </div>
-        </div>
+            </template>
+        </CartContent>
 
         <template #footer>
-            <div v-if="!cartStore.isEmpty" class="flex justify-between gap-2">
-                <div class="flex gap-2 ml-auto">
-                    <Button label="Checkout" @click="proceedToCheckout"
-                        class="bg-red-500 hover:bg-red-600 border-red-500" />
-                </div>
+            <div v-if="!isEmpty" class="flex w-full justify-end gap-2">
+                <Button v-if="!isOffline" label="Checkout" @click="proceedToCheckout"
+                    class="w-full bg-red-500 hover:bg-red-600 border-red-500" />
+                <Button v-else label="Complete sale" icon="pi pi-check" @click="onCompleteSale"
+                    class="w-full bg-red-500 hover:bg-red-600 border-red-500" />
             </div>
         </template>
     </Dialog>
 
-    <!-- Promo Modal -->
-    <PromoModal :visible="showPromoModal" :userId="'customer_001'" :orderAmount="subtotal" :categories="cartStore.cartCategories"
-        @update:visible="showPromoModal = $event" @promo-selected="onPromoSelected" />
+    <!-- Promo Modal: online orders only (offline cashier has no discount/coupon) -->
+    <PromoModal v-if="!isOffline" :visible="showPromoModal" :userId="'customer_001'" :orderAmount="subtotal"
+        :categories="cartStore.cartCategories" @update:visible="showPromoModal = $event"
+        @promo-selected="onPromoSelected" />
 
     <!-- Custom Toast for Cart Actions -->
     <Toast position="top-center" group="cart">

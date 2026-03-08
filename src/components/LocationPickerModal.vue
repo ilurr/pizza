@@ -30,7 +30,6 @@ const showNotificationRequest = ref(false);
 const isSavingNotification = ref(false);
 
 import api from '@/services/api';
-import type { Ref } from 'vue';
 
 let map: any = null;
 let marker: any = null;
@@ -431,31 +430,31 @@ watch(
                     initMap();
                 }, 300);
             });
-    } else {
-        // Clean up map when modal closes
-        if (map) {
-            map.remove();
-            map = null;
+        } else {
+            // Clean up map when modal closes
+            if (map) {
+                map.remove();
+                map = null;
+            }
+            if (marker) {
+                marker = null;
+            }
+            if (coveragePolygon) {
+                coveragePolygon = null;
+            }
+            // Reset state
+            selectedLocation.value = null;
+            showNotificationRequest.value = false;
+            isWithinCoverage.value = true;
         }
-        if (marker) {
-            marker = null;
-        }
-        if (coveragePolygon) {
-            coveragePolygon = null;
-        }
-        // Reset state
-        selectedLocation.value = null;
-        showNotificationRequest.value = false;
-        isWithinCoverage.value = true;
     }
-}
 );
 </script>
 
 <template>
     <Dialog :visible="visible" modal header="Select Your Location" :style="{ width: '90vw', maxWidth: '800px' }"
         :breakpoints="{ '1199px': '75vw', '575px': '90vw' }" class="dialog-flex-end" @update:visible="closeModal">
-        <div class="space-y-4">
+        <div class="space-y-3">
             <!-- Current Location Button -->
             <div class="flex justify-center">
                 <Button label="Use My Current Location" icon="pi pi-map-marker" severity="success"
@@ -463,17 +462,7 @@ watch(
             </div>
 
             <!-- Map Container -->
-            <div ref="mapContainer" class="w-full h-96 rounded-lg border border-gray-300 dark:border-gray-600"></div>
-
-            <!-- Selected Location Info -->
-            <!-- <div v-if="selectedLocation && isWithinCoverage"
-                class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                <h3 class="font-semibold text-green-900 dark:text-green-100 mb-2">✅ Great! We deliver here:</h3>
-                <p class="text-sm text-green-700 dark:text-green-300">{{ selectedLocation.address }}</p>
-                <p class="text-xs text-green-600 dark:text-green-400 mt-1">
-                    Lat: {{ selectedLocation.lat.toFixed(6) }}, Lng: {{ selectedLocation.lng.toFixed(6) }}
-                </p>
-            </div> -->
+            <div ref="mapContainer" class="w-full h-72 rounded-lg border border-gray-300 dark:border-gray-600"></div>
 
             <!-- Out of Coverage Area Info -->
             <div v-if="selectedLocation && isWithinCoverage">
@@ -488,13 +477,6 @@ watch(
                 </h3>
             </div>
 
-            <!-- Instructions -->
-            <!-- <div class="text-sm text-gray-600 dark:text-gray-400">
-                <ul>
-                    <li>📍 Click on the map to select your location</li>
-                    <li>🎯 Allow location access for automatic detection</li>
-                </ul>
-            </div> -->
         </div>
 
         <template #footer>

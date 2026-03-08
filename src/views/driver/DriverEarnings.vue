@@ -1,424 +1,138 @@
 <script setup>
 import api from '@/services/api/index.js';
+import { useUserStore } from '@/stores/userStore';
 import { computed, onMounted, ref, watch } from 'vue';
 
-// Earnings data (initialized with defaults, overridden by API)
-const earnings = ref({
-    today: {
-        deliveries: 12,
-        grossEarnings: 180000,
-        commission: 27000, // 15%
-        expenses: 35000, // gas, maintenance
-        netEarnings: 145000,
-        tips: 25000,
-        bonus: 15000
-    },
-    week: {
-        deliveries: 78,
-        grossEarnings: 1170000,
-        commission: 175500,
-        expenses: 245000,
-        netEarnings: 925000,
-        tips: 156000,
-        bonus: 75000
-    },
-    month: {
-        deliveries: 312,
-        grossEarnings: 4680000,
-        commission: 702000,
-        expenses: 890000,
-        netEarnings: 3790000,
-        tips: 624000,
-        bonus: 300000
-    }
-});
-
+const userStore = useUserStore();
 const selectedPeriod = ref('today');
-const chartData = ref({});
-const chartOptions = ref({});
+const report = ref({ totalSoldItems: 0, totalEarnings: 0 });
+const dailyDeposits = ref([]);
+const isLoading = ref(false);
 
-// Recent transactions (latest period)
-const recentTransactions = ref([
-    {
-        id: 'TXN001',
-        type: 'delivery',
-        orderId: 'PZ-2024-156',
-        amount: 15000,
-        customerTip: 5000,
-        date: new Date().toISOString(),
-        status: 'completed'
-    },
-    {
-        id: 'TXN002',
-        type: 'delivery',
-        orderId: 'PZ-2024-155',
-        amount: 22500,
-        customerTip: 0,
-        date: new Date(Date.now() - 3600000).toISOString(),
-        status: 'completed'
-    },
-    {
-        id: 'TXN003',
-        type: 'bonus',
-        description: 'Peak hours bonus',
-        amount: 15000,
-        date: new Date(Date.now() - 7200000).toISOString(),
-        status: 'completed'
-    },
-    {
-        id: 'TXN004',
-        type: 'expense',
-        description: 'Gas refill',
-        amount: -25000,
-        date: new Date(Date.now() - 10800000).toISOString(),
-        status: 'completed'
-    }
-]);
+const driverId = computed(() => userStore.user?.id || 'driver_001');
 
-// Computed
-const currentEarnings = computed(() => {
-    return earnings.value[selectedPeriod.value];
-});
-
-const earningsSummary = computed(() => [
-    {
-        title: 'Gross Earnings',
-        value: currentEarnings.value.grossEarnings,
-        icon: 'pi pi-dollar',
-        color: 'blue',
-        subtitle: `${currentEarnings.value.deliveries} deliveries`
-    },
-    {
-        title: 'Commission (15%)',
-        value: currentEarnings.value.commission,
-        icon: 'pi pi-percentage',
-        color: 'purple',
-        subtitle: 'Platform fee'
-    },
-    {
-        title: 'Tips & Bonus',
-        value: currentEarnings.value.tips + currentEarnings.value.bonus,
-        icon: 'pi pi-star',
-        color: 'orange',
-        subtitle: 'Extra income'
-    },
-    {
-        title: 'Net Earnings',
-        value: currentEarnings.value.netEarnings,
-        icon: 'pi pi-wallet',
-        color: 'green',
-        subtitle: 'After expenses'
-    }
-]);
-
-// Methods
 const formatCurrency = (amount) => {
-    const formatted = new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-    }).format(amount);
-    return formatted.replace(/\s/g, ''); // Remove spaces
+    if (amount == null) return '—';
+    const formatted = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+    return formatted.replace(/\s/g, '');
 };
 
-const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const getTransactionIcon = (type) => {
-    const icons = {
-        delivery: 'pi pi-truck',
-        bonus: 'pi pi-star',
-        expense: 'pi pi-minus-circle',
-        tip: 'pi pi-heart'
-    };
-    return icons[type] || 'pi pi-circle';
-};
-
-const getTransactionColor = (type) => {
-    const colors = {
-        delivery: 'success',
-        bonus: 'warn',
-        expense: 'danger',
-        tip: 'info'
-    };
-    return colors[type] || 'info';
-};
-
-const initChart = () => {
-    const documentStyle = getComputedStyle(document.documentElement);
-
-    chartData.value = {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        datasets: [
-            {
-                label: 'Daily Earnings',
-                data: [125000, 145000, 98000, 167000, 189000, 234000, 156000],
-                backgroundColor: documentStyle.getPropertyValue('--blue-500'),
-                borderColor: documentStyle.getPropertyValue('--blue-700'),
-                borderWidth: 2,
-                fill: false,
-                tension: 0.4
-            },
-            {
-                label: 'Expenses',
-                data: [35000, 28000, 42000, 31000, 45000, 38000, 33000],
-                backgroundColor: documentStyle.getPropertyValue('--red-500'),
-                borderColor: documentStyle.getPropertyValue('--red-700'),
-                borderWidth: 2,
-                fill: false,
-                tension: 0.4
-            }
-        ]
-    };
-
-    chartOptions.value = {
-        responsive: true,
-        plugins: {
-            legend: {
-                position: 'top'
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    callback: function (value) {
-                        return 'Rp' + value.toLocaleString('id-ID');
-                    }
-                }
-            }
-        }
-    };
-};
+const reportSummary = computed(() => [
+    { title: 'Total sold items', value: report.value.totalSoldItems, icon: 'pi pi-box', color: 'blue', subtitle: 'Units', isCurrency: false },
+    { title: 'Total earnings', value: report.value.totalEarnings, icon: 'pi pi-wallet', color: 'green', subtitle: 'Rp', isCurrency: true }
+]);
 
 const loadEarnings = async () => {
+    isLoading.value = true;
     try {
-        const res = await api.drivers.getDriverEarnings('driver_001', selectedPeriod.value);
-        if (res && res.success && res.data) {
-            if (res.data.earnings) {
-                earnings.value[selectedPeriod.value] = res.data.earnings;
-            }
-            if (Array.isArray(res.data.transactions)) {
-                recentTransactions.value = res.data.transactions;
-            }
+        const res = await api.drivers.getDriverEarnings(driverId.value, selectedPeriod.value);
+        if (res?.success && res.data) {
+            report.value = res.data.report || { totalSoldItems: 0, totalEarnings: 0 };
+            dailyDeposits.value = res.data.dailyDeposits || [];
+        } else {
+            report.value = { totalSoldItems: 0, totalEarnings: 0 };
+            dailyDeposits.value = [];
         }
-    } catch (error) {
-        console.error('Failed to load driver earnings:', error);
+    } catch (e) {
+        console.error('Failed to load driver earnings:', e);
+        report.value = { totalSoldItems: 0, totalEarnings: 0 };
+        dailyDeposits.value = [];
+    } finally {
+        isLoading.value = false;
     }
 };
 
-// Lifecycle
-onMounted(() => {
-    initChart();
-    loadEarnings();
-});
-
-watch(selectedPeriod, () => {
-    loadEarnings();
-});
+onMounted(() => loadEarnings());
+watch(selectedPeriod, () => loadEarnings());
 </script>
 
 <template>
-    <div class="grid">
-        <!-- Header with Period Selection -->
-        <div class="col-12">
-            <div class="card">
-                <div class="flex flex-column md:flex-row justify-content-between align-items-center mb-4">
-                    <div>
-                        <h3>Earnings Dashboard</h3>
-                        <p class="text-600 mb-0">Track your income and expenses</p>
-                    </div>
-                    <SelectButton
-                        v-model="selectedPeriod"
-                        :options="[
-                            { label: 'Today', value: 'today' },
-                            { label: 'This Week', value: 'week' },
-                            { label: 'This Month', value: 'month' }
-                        ]"
-                        optionLabel="label"
-                        optionValue="value"
-                    />
-                </div>
+    <div class="p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex flex-row items-center justify-between gap-3 mb-4">
+                <p class="text-600 dark:text-400 text-sm mb-0">Sold items and total earnings for the period.</p>
+                <Button label="Refresh" icon="pi pi-refresh" outlined size="small" :loading="isLoading"
+                    @click="loadEarnings" />
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <SelectButton v-model="selectedPeriod" :options="[
+                    { label: 'Today', value: 'today' },
+                    { label: 'Week', value: 'week' },
+                    { label: 'Month', value: 'month' }
+                ]" optionLabel="label" optionValue="value" size="small" />
             </div>
         </div>
 
-        <!-- Earnings Summary Cards -->
-        <div class="col-12 md:col-6 lg:col-3" v-for="summary in earningsSummary" :key="summary.title">
-            <div class="card text-center">
-                <div class="flex align-items-center justify-content-center mb-3">
-                    <i :class="[summary.icon, `text-${summary.color}-500`]" class="text-3xl"></i>
-                </div>
-                <div class="text-2xl font-bold mb-2" :class="`text-${summary.color}-600`">
-                    {{ formatCurrency(summary.value) }}
-                </div>
-                <div class="text-600 font-medium mb-1">{{ summary.title }}</div>
-                <div class="text-500 text-sm">{{ summary.subtitle }}</div>
-            </div>
+        <div v-if="isLoading" class="flex justify-center py-8">
+            <ProgressSpinner style="width: 40px; height: 40px" />
         </div>
 
-        <!-- Earnings Chart -->
-        <div class="col-12 lg:col-8">
-            <div class="card">
-                <h5>Weekly Earnings Trend</h5>
-                <Chart type="line" :data="chartData" :options="chartOptions" height="300" />
-            </div>
-        </div>
-
-        <!-- Performance Metrics -->
-        <div class="col-12 lg:col-4">
-            <div class="card">
-                <h5>Performance Metrics</h5>
-                <div class="flex flex-column gap-4">
-                    <div class="flex justify-content-between align-items-center">
-                        <span class="text-600">Average per Delivery</span>
-                        <span class="font-bold">
-                            {{ formatCurrency(Math.round(currentEarnings.grossEarnings / currentEarnings.deliveries)) }}
+        <template v-else>
+            <!-- Report summary -->
+            <div class="grid grid-cols-2 gap-4 w-full mb-6">
+                <div v-for="s in reportSummary" :key="s.title"
+                    class="rounded-xl border-2 bg-white dark:bg-neutral-800 border-surface-200 dark:border-surface-700 overflow-hidden transition-shadow hover:shadow-sm">
+                    <div class="p-5 flex flex-col items-center text-center gap-3">
+                        <span class="flex items-center justify-center w-14 h-14 rounded-2xl shrink-0" :class="{
+                            'bg-blue-200/60 dark:bg-blue-700/40': s.color === 'blue',
+                            'bg-green-200/60 dark:bg-green-700/40': s.color === 'green'
+                        }">
+                            <i
+                                :class="[s.icon, '!text-2xl shrink-0', s.color === 'blue' && 'text-blue-500', s.color === 'green' && 'text-green-500']"></i>
                         </span>
-                    </div>
-                    <Divider />
-                    <div class="flex justify-content-between align-items-center">
-                        <span class="text-600">Commission Rate</span>
-                        <span class="font-bold">15%</span>
-                    </div>
-                    <Divider />
-                    <div class="flex justify-content-between align-items-center">
-                        <span class="text-600">Tip Rate</span>
-                        <span class="font-bold"> {{ Math.round((currentEarnings.tips / currentEarnings.grossEarnings) * 100) }}% </span>
-                    </div>
-                    <Divider />
-                    <div class="flex justify-content-between align-items-center">
-                        <span class="text-600">Profit Margin</span>
-                        <span class="font-bold text-green-600"> {{ Math.round((currentEarnings.netEarnings / currentEarnings.grossEarnings) * 100) }}% </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Transactions -->
-        <div class="col-12">
-            <div class="card">
-                <div class="flex justify-content-between align-items-center mb-4">
-                    <h5>Recent Transactions</h5>
-                    <Button label="View All" outlined size="small" />
-                </div>
-
-                <DataTable :value="recentTransactions" responsiveLayout="scroll" class="p-datatable-sm">
-                    <Column header="Type" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <div class="flex align-items-center gap-2">
-                                <i
-                                    :class="[
-                                        getTransactionIcon(data.type),
-                                        `text-${getTransactionColor(data.type) === 'success' ? 'green' : getTransactionColor(data.type) === 'danger' ? 'red' : getTransactionColor(data.type) === 'warn' ? 'orange' : 'blue'}-500`
-                                    ]"
-                                ></i>
-                                <span class="font-medium capitalize">{{ data.type }}</span>
+                        <div class="min-w-0 w-full">
+                            <div class="text-600 dark:text-400 text-sm mb-0.5">{{ s.subtitle }}</div>
+                            <div class="text-xl font-bold text-surface-900 dark:text-surface-0 truncate">
+                                {{ s.isCurrency ? formatCurrency(s.value) : s.value }}
                             </div>
-                        </template>
-                    </Column>
-
-                    <Column header="Description" style="min-width: 12rem">
-                        <template #body="{ data }">
-                            <div>
-                                <div class="font-medium">
-                                    {{ data.orderId || data.description }}
-                                </div>
-                                <small v-if="data.customerTip > 0" class="text-600"> + {{ formatCurrency(data.customerTip) }} tip </small>
+                            <div class="text-surface-700 dark:text-surface-300 font-medium text-sm mt-1">{{ s.title }}
                             </div>
-                        </template>
-                    </Column>
-
-                    <Column header="Amount" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <span class="font-bold" :class="data.amount > 0 ? 'text-green-600' : 'text-red-600'">
-                                {{ formatCurrency(data.amount) }}
-                            </span>
-                        </template>
-                    </Column>
-
-                    <Column header="Date" style="min-width: 10rem">
-                        <template #body="{ data }">
-                            <span class="text-600">{{ formatDate(data.date) }}</span>
-                        </template>
-                    </Column>
-
-                    <Column header="Status" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <Tag :value="data.status" severity="success" />
-                        </template>
-                    </Column>
-                </DataTable>
-            </div>
-        </div>
-
-        <!-- Expense Breakdown -->
-        <div class="col-12 md:col-6">
-            <div class="card">
-                <h5>Expense Breakdown ({{ selectedPeriod }})</h5>
-                <div class="flex flex-column gap-3">
-                    <div class="flex justify-content-between align-items-center p-3 bg-red-50 border-round">
-                        <div class="flex align-items-center gap-2">
-                            <i class="pi pi-car text-red-500"></i>
-                            <span>Fuel & Maintenance</span>
                         </div>
-                        <span class="font-bold text-red-600">{{ formatCurrency(currentEarnings.expenses * 0.7) }}</span>
-                    </div>
-                    <div class="flex justify-content-between align-items-center p-3 bg-orange-50 border-round">
-                        <div class="flex align-items-center gap-2">
-                            <i class="pi pi-box text-orange-500"></i>
-                            <span>Ingredient Restocking</span>
-                        </div>
-                        <span class="font-bold text-orange-600">{{ formatCurrency(currentEarnings.expenses * 0.3) }}</span>
-                    </div>
-                    <Divider />
-                    <div class="flex justify-content-between align-items-center">
-                        <span class="font-medium">Total Expenses</span>
-                        <span class="font-bold text-900">{{ formatCurrency(currentEarnings.expenses) }}</span>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Goals & Targets -->
-        <div class="col-12 md:col-6">
-            <div class="card">
-                <h5>Daily Goals</h5>
-                <div class="flex flex-column gap-3">
-                    <div>
-                        <div class="flex justify-content-between align-items-center mb-2">
-                            <span class="text-600">Deliveries Target</span>
-                            <span class="font-bold">{{ currentEarnings.deliveries }}/15</span>
-                        </div>
-                        <ProgressBar :value="(currentEarnings.deliveries / 15) * 100" />
-                    </div>
-                    <div>
-                        <div class="flex justify-content-between align-items-center mb-2">
-                            <span class="text-600">Earnings Target</span>
-                            <span class="font-bold">{{ formatCurrency(currentEarnings.grossEarnings) }}/{{ formatCurrency(200000) }}</span>
-                        </div>
-                        <ProgressBar :value="(currentEarnings.grossEarnings / 200000) * 100" />
-                    </div>
-                    <div>
-                        <div class="flex justify-content-between align-items-center mb-2">
-                            <span class="text-600">Customer Rating</span>
-                            <span class="font-bold">4.8/5.0</span>
-                        </div>
-                        <ProgressBar :value="96" severity="success" />
-                    </div>
+            <!-- Daily deposit table -->
+            <div>
+                <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0 mb-3">Daily deposit</h3>
+                <div v-if="dailyDeposits.length === 0"
+                    class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 p-8 text-center text-600">
+                    <i class="pi pi-inbox text-4xl mb-3 block"></i>
+                    <p class="mb-0">No deposit rows for this period.</p>
+                </div>
+                <div v-else
+                    class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-white dark:bg-neutral-800 overflow-hidden">
+                    <DataTable :value="dailyDeposits" responsiveLayout="scroll" class="p-datatable-sm"
+                        :paginator="dailyDeposits.length > 10" :rows="10">
+                        <Column field="productName" header="Product" style="min-width: 10rem" />
+                        <Column field="earlyStock" header="Early stock" style="min-width: 6rem" />
+                        <Column field="soldItems" header="Sold" style="min-width: 5rem" />
+                        <Column header="Online" style="min-width: 8rem">
+                            <template #body="{ data }">{{ formatCurrency(data.onlineAmount) }}</template>
+                        </Column>
+                        <Column header="Offline Cash" style="min-width: 9rem">
+                            <template #body="{ data }">{{ formatCurrency(data.offlineCashAmount) }}</template>
+                        </Column>
+                        <Column header="Offline QRIS" style="min-width: 10rem">
+                            <template #body="{ data }">{{ formatCurrency(data.offlineQrisAmount) }}</template>
+                        </Column>
+                        <Column header="Total earning" style="min-width: 9rem">
+                            <template #body="{ data }">
+                                <span class="font-semibold text-green-600 dark:text-green-400">{{
+                                    formatCurrency(data.totalEarning) }}</span>
+                            </template>
+                        </Column>
+                        <Column header="Date" style="min-width: 7rem">
+                            <template #body="{ data }">{{ formatDate(data.depositDate) }}</template>
+                        </Column>
+                    </DataTable>
                 </div>
             </div>
-        </div>
+        </template>
     </div>
 </template>
-
-<style scoped>
-.capitalize {
-    text-transform: capitalize;
-}
-</style>

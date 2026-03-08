@@ -36,7 +36,6 @@ const driverModel = ref([
         label: 'Management',
         items: [
             { label: 'Stock Inventory', icon: 'pi pi-fw pi-box', to: '/driver/stock' },
-            { label: 'Stock Exchange', icon: 'pi pi-fw pi-arrow-right-arrow-left', to: '/driver/exchange' },
             { label: 'Earnings', icon: 'pi pi-fw pi-wallet', to: '/driver/earnings' }
         ]
     }

@@ -1,28 +1,22 @@
 import { BaseApiService } from './ApiClient.js';
+import { getSupabaseClient } from '@/services/supabase/client.js';
 import driversData from '@/data/drivers.json';
-import driverStockData from '@/data/driverStock.json';
-import driverEarningsData from '@/data/driverEarnings.json';
-import driverTransactionsData from '@/data/driverTransactions.json';
 import driverNearbyDriversData from '@/data/driverNearbyDrivers.json';
 
 export class DriverApiService extends BaseApiService {
     constructor() {
         super();
         this.endpoint = '/drivers';
+        this.dataSource = import.meta.env?.VITE_DATA_SOURCE || 'supabase';
         this.initializeMockData();
     }
 
     initializeMockData() {
-        // Mock driver profiles from central data (src/data/drivers.json)
         this.mockDrivers = JSON.parse(JSON.stringify(driversData)).map((d) => ({
             ...d,
             updatedAt: new Date().toISOString()
         }));
-
-        // Mock stock, earnings, and transactions from central data
-        this.mockStock = JSON.parse(JSON.stringify(driverStockData));
-        this.mockEarnings = JSON.parse(JSON.stringify(driverEarningsData));
-        this.mockTransactions = JSON.parse(JSON.stringify(driverTransactionsData));
+        this._mockTransactions = [];
     }
 
     // Get driver profile by ID
@@ -94,133 +88,208 @@ export class DriverApiService extends BaseApiService {
         return await this.patch(`${this.endpoint}/${driverId}/location`, { location });
     }
 
-    // Get driver stock/inventory
+    // Get driver stock (base + topping only, quantity only, no Rp)
     async getDriverStock(driverId, filters = {}) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-
-            let filteredStock = [...this.mockStock];
-
-            // Apply filters
-            if (filters.category) {
-                filteredStock = filteredStock.filter((item) => item.category.toLowerCase() === filters.category.toLowerCase());
-            }
-
-            if (filters.critical) {
-                filteredStock = filteredStock.filter((item) => item.currentStock <= item.criticalLevel);
-            }
-
-            if (filters.lowStock) {
-                filteredStock = filteredStock.filter((item) => item.currentStock <= item.maxCapacity * 0.3);
-            }
-
-            // Calculate stock metrics
-            const totalItems = filteredStock.length;
-            const criticalItems = filteredStock.filter((item) => item.currentStock <= item.criticalLevel).length;
-            const lowStockItems = filteredStock.filter((item) => item.currentStock <= item.maxCapacity * 0.3).length;
-            const totalValue = filteredStock.reduce((sum, item) => sum + item.currentStock * item.cost, 0);
-
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const { data: stockRows, error: e1 } = await supabase.from('driver_stock').select('*').eq('driver_id', driverId);
+            if (e1) return this.createMockError(e1.message || 'Failed to fetch stock', e1.code || 500);
+            const productIds = [...new Set((stockRows || []).map((r) => r.product_id))];
+            if (productIds.length === 0) return this.createMockResponse({ stock: [], metrics: { totalItems: 0, criticalItems: 0 } });
+            const { data: products, error: e2 } = await supabase.from('stock_products').select('id, name, type, unit').in('id', productIds);
+            if (e2) return this.createMockError(e2.message || 'Failed to fetch products', e2.code || 500);
+            const productMap = (products || []).reduce((acc, p) => { acc[p.id] = p; return acc; }, {});
+            let stock = (stockRows || []).map((r) => {
+                const p = productMap[r.product_id] || {};
+                return {
+                    id: r.product_id,
+                    productId: r.product_id,
+                    name: p.name,
+                    type: p.type || 'base',
+                    category: (p.type || 'base').charAt(0).toUpperCase() + (p.type || 'base').slice(1),
+                    unit: p.unit || 'pcs',
+                    currentStock: r.quantity ?? 0,
+                    maxCapacity: r.max_capacity ?? 100,
+                    criticalLevel: r.critical_level ?? 5
+                };
+            });
+            if (filters.type) stock = stock.filter((i) => i.type === filters.type);
+            if (filters.critical) stock = stock.filter((i) => i.currentStock <= i.criticalLevel);
             return this.createMockResponse({
-                stock: filteredStock,
-                metrics: {
-                    totalItems,
-                    criticalItems,
-                    lowStockItems,
-                    totalValue,
-                    capacityUtilization: filteredStock.reduce((sum, item) => sum + item.currentStock / item.maxCapacity, 0) / filteredStock.length
-                }
+                stock,
+                metrics: { totalItems: stock.length, criticalItems: stock.filter((i) => i.currentStock <= i.criticalLevel).length }
             });
         }
-
+        if (this.useMockApi) {
+            await this.mockDelay();
+            return this.createMockResponse({ stock: [], metrics: { totalItems: 0, criticalItems: 0 } });
+        }
         return await this.get(`${this.endpoint}/${driverId}/stock`, filters);
     }
 
-    // Update stock levels (restock)
-    async updateStock(driverId, stockUpdates) {
-        if (this.useMockApi) {
-            await this.mockDelay(1500); // Simulate processing time
-
-            const updatedItems = [];
-
-            for (const update of stockUpdates) {
-                const itemIndex = this.mockStock.findIndex((item) => item.id === update.itemId);
-
-                if (itemIndex !== -1) {
-                    const newStock = Math.min(this.mockStock[itemIndex].currentStock + update.quantity, this.mockStock[itemIndex].maxCapacity);
-
-                    this.mockStock[itemIndex].currentStock = newStock;
-                    this.mockStock[itemIndex].lastRestocked = new Date().toISOString();
-
-                    updatedItems.push(this.mockStock[itemIndex]);
-                }
-            }
-
-            return this.createMockResponse({
-                updatedItems,
-                message: `Successfully restocked ${updatedItems.length} items`
-            });
+    // Update one stock item quantity (Supabase or API)
+    async updateStockQuantity(driverId, productId, quantity) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const { data, error } = await supabase
+                .from('driver_stock')
+                .update({ quantity: Math.max(0, quantity), updated_at: new Date().toISOString() })
+                .eq('driver_id', driverId)
+                .eq('product_id', productId)
+                .select()
+                .single();
+            if (error) return this.createMockError(error.message || 'Failed to update stock', error.code || 500);
+            return this.createMockResponse({ stock: data, message: 'Stock updated' });
         }
-
-        return await this.patch(`${this.endpoint}/${driverId}/stock`, { updates: stockUpdates });
+        return await this.patch(`${this.endpoint}/${driverId}/stock`, { productId, quantity });
     }
 
-    // Get driver earnings data
-    async getDriverEarnings(driverId, period = 'today', filters = {}) {
-        if (this.useMockApi) {
-            await this.mockDelay();
+    // Submit morning confirmation (items driver confirms they have)
+    async submitDriverDailyConfirmation(driverId, items) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const { data, error } = await supabase
+                .from('driver_daily_confirmations')
+                .insert({ driver_id: driverId, items: items || [] })
+                .select()
+                .single();
+            if (error) return this.createMockError(error.message || 'Failed to save confirmation', error.code || 500);
+            return this.createMockResponse({ confirmation: data, message: 'Confirmation saved' });
+        }
+        return this.createMockResponse({ message: 'Confirmation saved' });
+    }
 
-            const earnings = this.mockEarnings[period];
+    // Get exchange history for driver
+    async getDriverStockExchanges(driverId, limit = 50) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const { data: rows, error } = await supabase
+                .from('driver_stock_exchanges')
+                .select('*')
+                .or(`from_driver_id.eq.${driverId},to_driver_id.eq.${driverId}`)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            if (error) return this.createMockError(error.message || 'Failed to fetch exchanges', error.code || 500);
+            const list = (rows || []).map((r) => ({
+                id: r.id,
+                fromDriverId: r.from_driver_id,
+                toDriverId: r.to_driver_id,
+                productName: r.product_name,
+                productType: r.product_type,
+                quantity: r.quantity,
+                unit: r.unit,
+                message: r.message,
+                createdAt: r.created_at
+            }));
+            return this.createMockResponse({ exchanges: list });
+        }
+        return this.createMockResponse({ exchanges: [] });
+    }
 
-            if (!earnings) {
-                return this.createMockError('Invalid period specified', 400);
+    // Create exchange (driver sends product to another driver)
+    async createDriverStockExchange(fromDriverId, toDriverId, productName, productType, quantity, unit = 'pcs', message = null) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const { data, error } = await supabase
+                .from('driver_stock_exchanges')
+                .insert({
+                    from_driver_id: fromDriverId,
+                    to_driver_id: toDriverId,
+                    product_name: productName,
+                    product_type: productType,
+                    quantity,
+                    unit,
+                    message
+                })
+                .select()
+                .single();
+            if (error) return this.createMockError(error.message || 'Failed to create exchange', error.code || 500);
+            return this.createMockResponse({ exchange: data, message: 'Exchange recorded' });
+        }
+        return this.createMockResponse({ message: 'Exchange recorded' });
+    }
+
+    // Get driver earnings: report (total sold items, total earnings) + daily deposit rows from Supabase
+    async getDriverEarnings(driverId, period = 'today') {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
             }
-
-            // Get recent transactions for the period
-            let transactions = this.mockTransactions.filter((t) => t.driverId === driverId);
-
+            const now = new Date();
+            let startDate;
             if (period === 'today') {
-                const today = new Date().toDateString();
-                transactions = transactions.filter((t) => new Date(t.date).toDateString() === today);
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             } else if (period === 'week') {
-                const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-                transactions = transactions.filter((t) => new Date(t.date) >= weekAgo);
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 7);
             } else if (period === 'month') {
-                const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-                transactions = transactions.filter((t) => new Date(t.date) >= monthAgo);
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 30);
+            } else {
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             }
+            const startStr = startDate.toISOString().slice(0, 10);
+            const endStr = now.toISOString().slice(0, 10);
+
+            const { data: rows, error } = await supabase
+                .from('driver_daily_deposits')
+                .select('*')
+                .eq('driver_id', driverId)
+                .gte('deposit_date', startStr)
+                .lte('deposit_date', endStr)
+                .order('deposit_date', { ascending: false })
+                .order('product_name', { ascending: true });
+
+            if (error) {
+                return this.createMockError(error.message || 'Failed to fetch earnings', error.code || 500);
+            }
+
+            const dailyDeposits = (rows || []).map((r) => ({
+                id: r.id,
+                driverId: r.driver_id,
+                depositDate: r.deposit_date,
+                productName: r.product_name,
+                earlyStock: r.early_stock ?? 0,
+                soldItems: r.sold_items ?? 0,
+                onlineAmount: Number(r.online_amount ?? 0),
+                offlineCashAmount: Number(r.offline_cash_amount ?? 0),
+                offlineQrisAmount: Number(r.offline_qris_amount ?? 0),
+                totalEarning: Number(r.total_earning ?? 0)
+            }));
+
+            const totalSoldItems = dailyDeposits.reduce((sum, r) => sum + r.soldItems, 0);
+            const totalEarnings = dailyDeposits.reduce((sum, r) => sum + r.totalEarning, 0);
 
             return this.createMockResponse({
-                earnings: earnings,
-                transactions: transactions.slice(0, 10), // Recent 10 transactions
-                period: period,
+                report: { totalSoldItems, totalEarnings },
+                dailyDeposits,
+                period,
                 generatedAt: new Date().toISOString()
             });
         }
-
-        return await this.get(`${this.endpoint}/${driverId}/earnings`, { period, ...filters });
+        return await this.get(`${this.endpoint}/${driverId}/earnings`, { period });
     }
 
-    // Add earning transaction
+    // Add earning transaction (mock only; Supabase uses driver_daily_deposits)
     async addTransaction(driverId, transactionData) {
         if (this.useMockApi) {
             await this.mockDelay();
-
             const newTransaction = {
                 id: `TXN${Date.now()}`,
-                driverId: driverId,
+                driverId,
                 date: new Date().toISOString(),
                 status: 'completed',
                 ...transactionData
             };
-
-            this.mockTransactions.unshift(newTransaction);
-
-            return this.createMockResponse({
-                transaction: newTransaction,
-                message: 'Transaction recorded successfully'
-            });
+            this._mockTransactions.unshift(newTransaction);
+            return this.createMockResponse({ transaction: newTransaction, message: 'Transaction recorded' });
         }
-
         return await this.post(`${this.endpoint}/${driverId}/transactions`, transactionData);
     }
 

@@ -1286,13 +1286,14 @@ export const ProductService = {
         return this.getOrders().then((orders) => orders.filter((order) => order.status === status));
     },
 
-    // Menu methods (combined pizzas and beverages)
+    // Menu methods (combined pizzas and beverages). Throws on failure so caller can show the error.
     async getMenu() {
         const res = await api.products.getMenu();
         if (res && res.success && res.data) {
             return { pizzas: res.data.pizzas || [], beverages: res.data.beverages || [] };
         }
-        return { pizzas: [], beverages: [] };
+        const msg = res?.error?.message || res?.error || 'Failed to load menu';
+        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     },
 
     getAvailableMenu() {

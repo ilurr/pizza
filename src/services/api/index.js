@@ -96,6 +96,7 @@ class ApiClient {
     setDataSource(dataSource) {
         this.config.DATA_SOURCE = dataSource;
         this.orders.dataSource = dataSource;
+        this.drivers.dataSource = dataSource;
         console.log(`Data source switched to: ${dataSource}`);
     }
 

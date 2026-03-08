@@ -53,6 +53,16 @@ const router = createRouter({
                     component: () => import('@/views/driver/DriverOrders.vue')
                 },
                 {
+                    path: '/driver/orders/online',
+                    name: 'driverOrdersOnline',
+                    component: () => import('@/views/driver/DriverOrdersOnline.vue')
+                },
+                {
+                    path: '/driver/order/offline',
+                    name: 'driverOfflineOrder',
+                    component: () => import('@/views/driver/DriverOfflineOrder.vue')
+                },
+                {
                     path: '/driver/stock',
                     name: 'driverStock',
                     component: () => import('@/views/driver/DriverStock.vue')
@@ -61,11 +71,6 @@ const router = createRouter({
                     path: '/driver/earnings',
                     name: 'driverEarnings',
                     component: () => import('@/views/driver/DriverEarnings.vue')
-                },
-                {
-                    path: '/driver/exchange',
-                    name: 'driverExchange',
-                    component: () => import('@/views/driver/DriverExchange.vue')
                 },
                 {
                     path: '/driver/profile',

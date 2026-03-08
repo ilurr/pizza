@@ -5,51 +5,69 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
-const { activeOrdersCount, hasActiveOrders } = useActiveOrders();
+const { hasActiveOrders } = useActiveOrders();
 
-const isActive = (path) => {
+/** Menu item: path, label, icon (PrimeIcons class e.g. 'pi-home'), highlight (center CTA), showBadge */
+const USER_MENU_ITEMS = [
+    { path: '/', label: 'Home', icon: 'pi-home' },
+    { path: '/menu', label: 'Menu', icon: 'pi-receipt' },
+    { path: '/order/now', label: 'Order Now', icon: 'pi-plus', highlight: true },
+    { path: '/order/my', label: 'My Order', icon: 'pi-shopping-cart', showBadge: true },
+    { path: '/profile', label: 'Profile', icon: 'pi-user' }
+];
+
+const props = defineProps({
+    /** Override menu items (e.g. driver menu). If not set, uses default user menu. */
+    items: { type: Array, default: null },
+    /** Optional badge counts by path, e.g. { '/order/my': true, '/driver/orders': 3 }. Used when items are provided. */
+    badgeCounts: { type: Object, default: () => ({}) }
+});
+
+const menuItems = computed(() => props.items || USER_MENU_ITEMS);
+
+/** First item (index 0) uses exact match so Dashboard/Home is only active on that route. */
+const isActive = (path, index) => {
     return computed(() => {
-        if (path === '/') {
-            return route.path === '/';
-        }
-        return route.path.startsWith(path);
+        if (index === 0) return route.path === path;
+        return route.path === path || route.path.startsWith(path + '/');
     });
+};
+
+const showBadge = (item) => {
+    if (!item.showBadge) return false;
+    if (props.items) {
+        const v = props.badgeCounts[item.path];
+        return typeof v === 'number' ? v > 0 : !!v;
+    }
+    return hasActiveOrders.value;
 };
 </script>
 
 <template>
     <div class="flex justify-between items-stretch fixed w-full bottom-0 md:bottom-4 md:rounded-md shadow-[0_-1px_12px_0_rgba(0,0,0,0.1)] md:-translate-x-2/4 md:left-2/4 z-10 md:px-4 bg-white dark:bg-neutral-700 max-w-3xl">
-        <router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/">
-            <button type="button" :class="['button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base', isActive('/').value && 'active']">
-                <i class="pi pi-home !text-lg"></i>
-                <span>Home</span>
-            </button>
-        </router-link>
-        <router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/menu">
-            <button type="button" :class="['button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base', isActive('/menu').value && 'active']">
-                <i class="pi pi-receipt !text-lg"></i>
-                <span>Menu</span>
-            </button>
-        </router-link>
-        <router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/order/now">
-            <button type="button" class="order-now-button flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-base bg-red-600 text-white rounded-full">
-                <i class="pi pi-plus !text-lg"></i>
-                <span>Order Now</span>
-            </button>
-        </router-link>
-        <router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/order/my">
-            <button type="button" :class="['button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base relative', isActive('/order/my').value && 'active']">
+        <router-link
+            v-for="(item, index) in menuItems"
+            :key="item.path"
+            class="basis-1/5 grow-0 flex justify-center items-center h-full"
+            :to="item.path"
+        >
+            <button
+                type="button"
+                :class="[
+                    'flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base',
+                    item.highlight ? 'order-now-button bg-red-600 text-white rounded-full text-base' : 'button outlined',
+                    item.highlight ? '' : (isActive(item.path, index).value && 'active')
+                ]"
+            >
                 <div class="relative">
-                    <i class="pi pi-shopping-cart !text-lg"></i>
-                    <Badge v-if="hasActiveOrders" severity="danger" class="absolute -top-1 -right-2 min-w-[10px] h-[10px] text-[8px]" />
+                    <i :class="['pi', item.icon, '!text-lg']"></i>
+                    <Badge
+                        v-if="showBadge(item)"
+                        severity="danger"
+                        class="absolute -top-1 -right-2 min-w-[10px] h-[10px] text-[8px]"
+                    />
                 </div>
-                <span>My Order</span>
-            </button>
-        </router-link>
-        <router-link class="basis-1/5 grow-0 flex justify-center items-center h-full" to="/profile">
-            <button type="button" :class="['button outlined flex flex-col items-center justify-center gap-1 md:w-5/6 h-[70px] font-bold text-sm md:text-base', isActive('/profile').value && 'active']">
-                <i class="pi pi-user !text-lg"></i>
-                <span>Profile</span>
+                <span>{{ item.label }}</span>
             </button>
         </router-link>
     </div>

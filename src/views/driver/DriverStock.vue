@@ -1,283 +1,393 @@
 <script setup>
 import api from '@/services/api/index.js';
+import { useUserStore } from '@/stores/userStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
+const userStore = useUserStore();
 const toast = useToast();
 
-// Stock data (loaded from DriverApiService in mock/real mode)
+const driverId = computed(() => userStore.user?.id || 'driver_001');
 const stockItems = ref([]);
-
-const selectedItems = ref([]);
+const isLoading = ref(false);
 const restockDialog = ref(false);
 const selectedRestockItem = ref(null);
 const restockQuantity = ref(0);
+const confirmListModal = ref(false);
+const exchangeModal = ref(false);
+const exchangeHistoryModal = ref(false);
+const nearbyDrivers = ref([]);
+const exchangeHistory = ref([]);
+const exchangeProduct = ref(null);
+const exchangeQuantity = ref(1);
+const exchangeToDriver = ref(null);
+const exchangeMessage = ref('');
+const isSubmittingConfirmation = ref(false);
+const isSubmittingExchange = ref(false);
 
-// Computed
-const criticalStockItems = computed(() => {
-    return stockItems.value.filter((item) => item.currentStock <= item.criticalLevel);
-});
+const criticalStockItems = computed(() =>
+    stockItems.value.filter((item) => item.currentStock <= item.criticalLevel)
+);
 
-const stockByCategory = computed(() => {
-    const categories = {};
+const stockByType = computed(() => {
+    const byType = { base: [], topping: [] };
     stockItems.value.forEach((item) => {
-        if (!categories[item.category]) {
-            categories[item.category] = [];
-        }
-        categories[item.category].push(item);
+        const t = (item.type || item.category?.toLowerCase?.() || 'base') === 'topping' ? 'topping' : 'base';
+        if (byType[t]) byType[t].push(item);
     });
-    return categories;
+    return byType;
 });
 
-const totalStockValue = computed(() => {
-    return stockItems.value.reduce((total, item) => {
-        return total + item.currentStock * item.cost;
-    }, 0);
-});
-
-const maxPizzasFromStock = computed(() => {
-    return Math.min(
-        ...stockItems.value.map((item) => {
-            if (item.category === 'Equipment') return 999;
-            return Math.floor(item.currentStock / item.estimatedUsage);
-        })
-    );
-});
-
-// Methods
-const getStockPercentage = (item) => {
-    return Math.round((item.currentStock / item.maxCapacity) * 100);
-};
+const getStockPercentage = (item) =>
+    item.maxCapacity ? Math.round((item.currentStock / item.maxCapacity) * 100) : 0;
 
 const getStockSeverity = (item) => {
-    const percentage = getStockPercentage(item);
-    if (percentage <= 20) return 'danger';
-    if (percentage <= 40) return 'warn';
+    const p = getStockPercentage(item);
+    if (p <= 20) return 'danger';
+    if (p <= 40) return 'warn';
     return 'success';
 };
 
 const openRestockDialog = (item) => {
     selectedRestockItem.value = item;
-    restockQuantity.value = item.maxCapacity - item.currentStock;
+    restockQuantity.value = Math.max(1, item.maxCapacity - item.currentStock);
     restockDialog.value = true;
 };
 
 const confirmRestock = () => {
-    if (selectedRestockItem.value && restockQuantity.value > 0) {
-        const newStock = Math.min(selectedRestockItem.value.currentStock + restockQuantity.value, selectedRestockItem.value.maxCapacity);
-
-        selectedRestockItem.value.currentStock = newStock;
-
-        toast.add({
-            severity: 'success',
-            summary: 'Stock Updated',
-            detail: `${selectedRestockItem.value.name} restocked to ${newStock} ${selectedRestockItem.value.unit}`,
-            life: 3000
-        });
-
-        restockDialog.value = false;
-        selectedRestockItem.value = null;
-        restockQuantity.value = 0;
-    }
+    if (!selectedRestockItem.value || restockQuantity.value <= 0) return;
+    const item = selectedRestockItem.value;
+    const newQty = Math.min(item.currentStock + restockQuantity.value, item.maxCapacity);
+    updateStockQuantity(item, newQty);
+    restockDialog.value = false;
+    selectedRestockItem.value = null;
+    restockQuantity.value = 0;
 };
 
-const formatCurrency = (amount) => {
-    const formatted = new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-    }).format(amount);
-    return formatted.replace(/\s/g, ''); // Remove spaces
-};
-
-const updateStock = (item, newQuantity) => {
-    if (newQuantity >= 0 && newQuantity <= item.maxCapacity) {
-        item.currentStock = newQuantity;
-        toast.add({
-            severity: 'info',
-            summary: 'Stock Updated',
-            detail: `${item.name} quantity updated`,
-            life: 2000
-        });
-    }
-};
-
-// Lifecycle
-const loadStock = async () => {
+const updateStockQuantity = async (item, newQuantity) => {
+    if (newQuantity == null || newQuantity < 0) return;
     try {
-        const res = await api.drivers.getDriverStock('driver_001');
-        if (res && res.success) {
-            stockItems.value = res.data.stock;
+        const res = await api.drivers.updateStockQuantity(driverId.value, item.productId || item.id, newQuantity);
+        if (res?.success) {
+            item.currentStock = newQuantity;
+            toast.add({ severity: 'success', summary: 'Stock updated', detail: `${item.name}: ${newQuantity} ${item.unit}`, life: 3000 });
         }
-    } catch (error) {
-        console.error('Failed to load driver stock:', error);
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e?.message || 'Failed to update', life: 3000 });
     }
 };
 
-onMounted(() => {
-    loadStock();
-});
+const loadStock = async () => {
+    isLoading.value = true;
+    try {
+        const res = await api.drivers.getDriverStock(driverId.value);
+        if (res?.success) stockItems.value = res.data.stock || [];
+        else stockItems.value = [];
+    } catch (e) {
+        console.error('Failed to load stock:', e);
+        stockItems.value = [];
+    } finally {
+        isLoading.value = false;
+    }
+};
+
+const openConfirmListModal = () => {
+    confirmListModal.value = true;
+};
+
+const submitConfirmation = async () => {
+    isSubmittingConfirmation.value = true;
+    try {
+        const items = stockItems.value.map((i) => ({ productId: i.productId || i.id, productName: i.name, type: i.type, quantity: i.currentStock, unit: i.unit }));
+        const res = await api.drivers.submitDriverDailyConfirmation(driverId.value, items);
+        if (res?.success) {
+            toast.add({ severity: 'success', summary: 'Confirmed', detail: 'Items list confirmed.', life: 3000 });
+            confirmListModal.value = false;
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e?.message || 'Failed to save', life: 3000 });
+    } finally {
+        isSubmittingConfirmation.value = false;
+    }
+};
+
+const openExchangeModal = async () => {
+    exchangeModal.value = true;
+    exchangeProduct.value = null;
+    exchangeQuantity.value = 1;
+    exchangeToDriver.value = null;
+    exchangeMessage.value = '';
+    try {
+        const res = await api.drivers.getNearbyDrivers(driverId.value);
+        if (res?.success && res.data?.nearbyDrivers) nearbyDrivers.value = res.data.nearbyDrivers;
+        else nearbyDrivers.value = [];
+    } catch {
+        nearbyDrivers.value = [];
+    }
+};
+
+const submitExchange = async () => {
+    if (!exchangeProduct.value || !exchangeToDriver.value || exchangeQuantity.value <= 0) {
+        toast.add({ severity: 'warn', summary: 'Invalid', detail: 'Select product, driver, and quantity.', life: 3000 });
+        return;
+    }
+    if (exchangeQuantity.value > exchangeProduct.value.currentStock) {
+        toast.add({ severity: 'warn', summary: 'Invalid', detail: 'Quantity exceeds your stock.', life: 3000 });
+        return;
+    }
+    isSubmittingExchange.value = true;
+    try {
+        const res = await api.drivers.createDriverStockExchange(
+            driverId.value,
+            exchangeToDriver.value.id,
+            exchangeProduct.value.name,
+            exchangeProduct.value.type || 'topping',
+            exchangeQuantity.value,
+            exchangeProduct.value.unit,
+            exchangeMessage.value || null
+        );
+        if (res?.success) {
+            toast.add({ severity: 'success', summary: 'Exchange recorded', detail: `Sent ${exchangeQuantity.value} ${exchangeProduct.value.unit} ${exchangeProduct.value.name} to ${exchangeToDriver.value.name}`, life: 3000 });
+            exchangeModal.value = false;
+            loadStock();
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e?.message || 'Failed', life: 3000 });
+    } finally {
+        isSubmittingExchange.value = false;
+    }
+};
+
+const openExchangeHistoryModal = async () => {
+    exchangeHistoryModal.value = true;
+    try {
+        const res = await api.drivers.getDriverStockExchanges(driverId.value);
+        exchangeHistory.value = (res?.success && res.data?.exchanges) ? res.data.exchanges : [];
+    } catch {
+        exchangeHistory.value = [];
+    }
+};
+
+const formatExchangeMessage = (ex) => {
+    const fromMe = ex.fromDriverId === driverId.value;
+    const toMe = ex.toDriverId === driverId.value;
+    const driverLabel = (id) => (id === driverId.value ? 'You' : `Driver ${id}`);
+    if (fromMe && toMe) return `${ex.productName}: ${ex.quantity} ${ex.unit} (internal)`;
+    if (fromMe) return `You sent ${ex.productName} to ${driverLabel(ex.toDriverId)}, ${ex.quantity} ${ex.unit}`;
+    return `${driverLabel(ex.fromDriverId)} sent ${ex.productName} to you, ${ex.quantity} ${ex.unit}`;
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+};
+
+const stockStats = computed(() => [
+    { title: 'Critical items', value: criticalStockItems.value.length, icon: 'pi pi-exclamation-triangle', color: 'orange', subtitle: 'Need restock' },
+    { title: 'Total items', value: stockItems.value.length, icon: 'pi pi-list', color: 'purple', subtitle: 'In inventory' }
+]);
+
+onMounted(() => loadStock());
 </script>
 
 <template>
-    <div class="grid">
-        <!-- Stock Overview -->
-        <div class="col-12">
-            <div class="card">
-                <h3>Stock Management</h3>
-                <p class="text-600">Manage your mobile kitchen inventory</p>
+    <div class="p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex flex-row flex-wrap items-center w-full justify-between gap-3 mb-2">
+                <p class="text-600 dark:text-400 text-sm mb-0">View and manage your stock inventory.</p>
+                <Button label="Refresh" icon="pi pi-refresh" outlined size="small" :loading="isLoading"
+                    @click="loadStock" />
+            </div>
+            <div
+                class="flex flex-wrap items-center w-full gap-2 border-t border-surface-200 dark:border-surface-700 pt-4">
+                <Button label="Confirm items" icon="pi pi-check" outlined size="small" @click="openConfirmListModal" />
+                <Button label="Exchange" icon="pi pi-arrow-right-arrow-left" outlined size="small"
+                    @click="openExchangeModal" />
+                <Button label="History" icon="pi pi-history" outlined size="small" @click="openExchangeHistoryModal" />
+            </div>
+        </div>
 
-                <div class="grid">
-                    <div class="col-12 md:col-3">
-                        <div class="card bg-blue-50 border-left-3 border-blue-500">
-                            <div class="text-center">
-                                <div class="text-2xl font-bold text-blue-600">{{ maxPizzasFromStock }}</div>
-                                <div class="text-sm text-600">Pizzas Possible</div>
-                            </div>
+        <!-- Stats (no Rp) -->
+        <div class="grid grid-cols-2 gap-4 w-full mb-6">
+            <div v-for="stat in stockStats" :key="stat.title"
+                class="rounded-xl border-2 bg-white dark:bg-neutral-800 border-surface-200 dark:border-surface-700 overflow-hidden transition-shadow hover:shadow-sm">
+                <div class="p-5 flex flex-col items-center text-center gap-3">
+                    <span class="flex items-center justify-center w-14 h-14 rounded-2xl shrink-0" :class="{
+                        'bg-orange-200/60 dark:bg-orange-700/40': stat.color === 'orange',
+                        'bg-purple-200/60 dark:bg-purple-700/40': stat.color === 'purple'
+                    }">
+                        <i
+                            :class="[stat.icon, 'text-2xl shrink-0', stat.color === 'orange' && 'text-orange-500', stat.color === 'purple' && 'text-purple-500']"></i>
+                    </span>
+                    <div class="min-w-0 w-full">
+                        <div class="text-600 dark:text-400 text-sm mb-0.5">{{ stat.subtitle }}</div>
+                        <div class="text-xl font-bold text-surface-900 dark:text-surface-0 truncate">{{ stat.value }}
                         </div>
-                    </div>
-                    <div class="col-12 md:col-3">
-                        <div class="card bg-green-50 border-left-3 border-green-500">
-                            <div class="text-center">
-                                <div class="text-2xl font-bold text-green-600">{{ formatCurrency(totalStockValue) }}</div>
-                                <div class="text-sm text-600">Total Stock Value</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 md:col-3">
-                        <div class="card bg-orange-50 border-left-3 border-orange-500">
-                            <div class="text-center">
-                                <div class="text-2xl font-bold text-orange-600">{{ criticalStockItems.length }}</div>
-                                <div class="text-sm text-600">Critical Items</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 md:col-3">
-                        <div class="card bg-purple-50 border-left-3 border-purple-500">
-                            <div class="text-center">
-                                <div class="text-2xl font-bold text-purple-600">{{ stockItems.length }}</div>
-                                <div class="text-sm text-600">Total Items</div>
-                            </div>
+                        <div class="text-surface-700 dark:text-surface-300 font-medium text-sm mt-1">{{ stat.title }}
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Critical Stock Alert -->
-        <div class="col-12" v-if="criticalStockItems.length > 0">
-            <Message severity="warn" :closable="false">
-                <div class="flex align-items-center gap-3">
-                    <i class="pi pi-exclamation-triangle text-2xl"></i>
-                    <div>
-                        <div class="font-medium">Low Stock Alert</div>
-                        <div class="text-sm">
-                            {{ criticalStockItems.length }} item(s) need restocking:
-                            {{ criticalStockItems.map((item) => item.name).join(', ') }}
-                        </div>
-                    </div>
+        <!-- Critical alert -->
+        <div v-if="criticalStockItems.length > 0"
+            class="rounded-xl border-2 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 p-4 mb-6">
+            <div class="flex items-start gap-3">
+                <i class="pi pi-exclamation-triangle text-2xl text-orange-500 shrink-0 mt-0.5"></i>
+                <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-orange-800 dark:text-orange-200 mb-1">Low stock</div>
+                    <p class="text-sm text-orange-700 dark:text-orange-300 mb-0">
+                        {{ criticalStockItems.length }} item(s): {{criticalStockItems.map((i) => i.name).join(', ')}}
+                    </p>
                 </div>
-            </Message>
+            </div>
         </div>
 
-        <!-- Stock Items by Category -->
-        <div class="col-12" v-for="(items, category) in stockByCategory" :key="category">
-            <div class="card">
-                <div class="flex align-items-center justify-content-between mb-4">
-                    <h5>{{ category }}</h5>
-                    <Button label="Restock Category" outlined size="small" />
-                </div>
+        <div v-if="isLoading" class="flex justify-center py-8">
+            <ProgressSpinner style="width: 40px; height: 40px" />
+        </div>
+        <div v-else-if="stockItems.length === 0"
+            class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 p-8 text-center text-600">
+            <i class="pi pi-inbox text-4xl mb-3 block"></i>
+            <p class="text-lg mb-0">No stock items yet.</p>
+        </div>
 
-                <DataTable :value="items" responsiveLayout="scroll" class="p-datatable-sm">
-                    <Column field="name" header="Item" style="min-width: 12rem">
-                        <template #body="{ data }">
-                            <div class="flex align-items-center gap-2">
-                                <div>
-                                    <div class="font-medium">{{ data.name }}</div>
-                                    <small class="text-600">{{ formatCurrency(data.cost) }}/{{ data.unit }}</small>
+        <template v-else>
+            <div v-for="(items, type) in stockByType" :key="type" class="mb-6">
+                <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0 mb-3">{{ type }}</h3>
+                <div
+                    class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-white dark:bg-neutral-800 overflow-hidden">
+                    <DataTable :value="items" responsiveLayout="scroll" class="p-datatable-sm" :paginator="false">
+                        <Column field="name" header="Item" style="min-width: 11rem">
+                            <template #body="{ data }">
+                                <div class="flex align-items-center gap-2">
+                                    <span class="font-medium text-surface-900 dark:text-surface-0">{{ data.name
+                                        }}</span>
+                                    <Tag v-if="data.currentStock <= data.criticalLevel" value="Low" severity="danger"
+                                        size="small" />
                                 </div>
-                                <Tag v-if="data.currentStock <= data.criticalLevel" value="Low" severity="danger" size="small" />
-                            </div>
-                        </template>
-                    </Column>
-
-                    <Column header="Current Stock" style="min-width: 10rem">
-                        <template #body="{ data }">
-                            <div class="flex align-items-center gap-2">
-                                <InputNumber v-model="data.currentStock" :min="0" :max="data.maxCapacity" @input="updateStock(data, $event.value)" size="small" style="width: 4rem" />
-                                <span class="text-sm text-600">{{ data.unit }}</span>
-                            </div>
-                        </template>
-                    </Column>
-
-                    <Column header="Capacity" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <div class="text-center">
-                                <div class="text-sm font-medium">{{ data.currentStock }} / {{ data.maxCapacity }}</div>
-                                <ProgressBar :value="getStockPercentage(data)" :severity="getStockSeverity(data)" style="height: 6px" class="mt-1" />
-                            </div>
-                        </template>
-                    </Column>
-
-                    <Column header="Usage Rate" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <div class="text-center text-sm">{{ data.estimatedUsage }} {{ data.unit }}/pizza</div>
-                        </template>
-                    </Column>
-
-                    <Column header="Value" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <div class="text-center font-medium">
-                                {{ formatCurrency(data.currentStock * data.cost) }}
-                            </div>
-                        </template>
-                    </Column>
-
-                    <Column header="Actions" style="min-width: 8rem">
-                        <template #body="{ data }">
-                            <div class="flex gap-1">
-                                <Button icon="pi pi-plus" severity="success" outlined size="small" @click="openRestockDialog(data)" v-tooltip.top="'Restock'" />
-                                <Button icon="pi pi-arrow-right-arrow-left" severity="info" outlined size="small" v-tooltip.top="'Exchange'" />
-                            </div>
-                        </template>
-                    </Column>
-                </DataTable>
+                            </template>
+                        </Column>
+                        <Column header="Current" style="min-width: 8rem">
+                            <template #body="{ data }">
+                                <div class="flex align-items-center gap-2">
+                                    <InputNumber :model-value="data.currentStock" :min="0" :max="data.maxCapacity"
+                                        size="small" @update:model-value="(v) => updateStockQuantity(data, v ?? 0)" />
+                                    <span class="text-sm text-600">{{ data.unit }}</span>
+                                </div>
+                            </template>
+                        </Column>
+                        <Column header="Capacity" style="min-width: 8rem">
+                            <template #body="{ data }">
+                                <div class="text-sm font-medium inline-block">{{ data.currentStock }} / {{
+                                    data.maxCapacity }}</div>
+                                <ProgressBar :value="getStockPercentage(data)" :severity="getStockSeverity(data)"
+                                    class="mt-1" />
+                            </template>
+                        </Column>
+                        <Column header="" style="min-width: 5rem">
+                            <template #body="{ data }">
+                                <Button icon="pi pi-plus" severity="success" outlined size="small"
+                                    v-tooltip.top="'Restock'" @click="openRestockDialog(data)" />
+                            </template>
+                        </Column>
+                    </DataTable>
+                </div>
             </div>
-        </div>
+        </template>
     </div>
 
-    <!-- Restock Dialog -->
-    <Dialog v-model:visible="restockDialog" header="Restock Item" modal :style="{ width: '450px' }">
-        <div v-if="selectedRestockItem" class="flex flex-column gap-4">
+    <!-- Restock dialog (no Rp) -->
+    <Dialog v-model:visible="restockDialog" header="Restock" modal :style="{ width: '380px' }">
+        <div v-if="selectedRestockItem" class="flex flex-col gap-4">
             <div>
-                <label class="block text-900 font-medium mb-2">Item</label>
-                <div class="text-lg font-semibold">{{ selectedRestockItem.name }}</div>
-                <small class="text-600">Current: {{ selectedRestockItem.currentStock }} {{ selectedRestockItem.unit }}</small>
-            </div>
-
-            <div>
-                <label class="block text-900 font-medium mb-2">Restock Quantity</label>
-                <InputNumber v-model="restockQuantity" :min="1" :max="selectedRestockItem.maxCapacity - selectedRestockItem.currentStock" fluid />
-                <small class="text-600"> Max capacity: {{ selectedRestockItem.maxCapacity }} {{ selectedRestockItem.unit }} </small>
-            </div>
-
-            <div>
-                <label class="block text-900 font-medium mb-2">Cost Estimate</label>
-                <div class="text-lg font-semibold text-green-600">
-                    {{ formatCurrency(restockQuantity * selectedRestockItem.cost) }}
+                <div class="text-lg font-semibold text-surface-900 dark:text-surface-0">{{ selectedRestockItem.name }}
                 </div>
+                <small class="text-600 dark:text-400">Current: {{ selectedRestockItem.currentStock }} {{
+                    selectedRestockItem.unit }}</small>
+            </div>
+            <div>
+                <label class="block text-surface-700 dark:text-surface-300 font-medium mb-2">Quantity</label>
+                <InputNumber v-model="restockQuantity" :min="1"
+                    :max="selectedRestockItem.maxCapacity - selectedRestockItem.currentStock" fluid />
+                <small class="text-600 dark:text-400">Max: {{ selectedRestockItem.maxCapacity }} {{
+                    selectedRestockItem.unit
+                    }}</small>
             </div>
         </div>
-
         <template #footer>
             <Button label="Cancel" outlined @click="restockDialog = false" />
-            <Button label="Confirm Restock" @click="confirmRestock" />
+            <Button label="Confirm" @click="confirmRestock" />
         </template>
     </Dialog>
-</template>
 
-<style scoped>
-.border-left-3 {
-    border-left: 3px solid;
-}
-</style>
+    <!-- Morning confirmation modal -->
+    <Dialog v-model:visible="confirmListModal" header="Confirm items you have" modal :style="{ width: '420px' }">
+        <p class="text-600 dark:text-400 text-sm mb-3">Check your actual items against the list, then confirm.</p>
+        <ul class="list-none p-0 m-0 space-y-2 max-h-64 overflow-y-auto">
+            <li v-for="item in stockItems" :key="item.productId || item.id"
+                class="flex justify-between py-2 border-b border-surface-200 dark:border-surface-700">
+                <span class="font-medium">{{ item.name }}</span>
+                <span>{{ item.currentStock }} {{ item.unit }}</span>
+            </li>
+        </ul>
+        <template #footer>
+            <Button label="Cancel" outlined @click="confirmListModal = false" />
+            <Button label="I confirm" :loading="isSubmittingConfirmation" @click="submitConfirmation" />
+        </template>
+    </Dialog>
+
+    <!-- Exchange modal -->
+    <Dialog v-model:visible="exchangeModal" header="Exchange with driver" modal :style="{ width: '420px' }">
+        <div class="flex flex-col gap-4">
+            <div>
+                <label class="block text-surface-700 dark:text-surface-300 font-medium mb-2">Send to driver</label>
+                <select v-model="exchangeToDriver"
+                    class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded bg-white dark:bg-surface-800 text-surface-900 dark:text-surface-0">
+                    <option :value="null">Select driver</option>
+                    <option v-for="d in nearbyDrivers.filter((x) => x.id !== driverId)" :key="d.id" :value="d">{{ d.name
+                        ||
+                        d.id }}</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-surface-700 dark:text-surface-300 font-medium mb-2">Product</label>
+                <select v-model="exchangeProduct"
+                    class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded bg-white dark:bg-surface-800 text-surface-900 dark:text-surface-0">
+                    <option :value="null">Select product</option>
+                    <option v-for="i in stockItems.filter((x) => x.currentStock > 0)" :key="i.productId || i.id"
+                        :value="i">
+                        {{ i.name }} ({{ i.currentStock }} {{ i.unit }})</option>
+                </select>
+            </div>
+            <div v-if="exchangeProduct">
+                <label class="block text-surface-700 dark:text-surface-300 font-medium mb-2">Quantity</label>
+                <InputNumber v-model="exchangeQuantity" :min="1" :max="exchangeProduct.currentStock" fluid />
+            </div>
+            <div>
+                <label class="block text-surface-700 dark:text-surface-300 font-medium mb-2">Message (optional)</label>
+                <input v-model="exchangeMessage" type="text" placeholder="e.g. Thanks for the swap"
+                    class="w-full p-2 border border-surface-300 dark:border-surface-600 rounded bg-white dark:bg-surface-800 text-surface-900 dark:text-surface-0" />
+            </div>
+        </div>
+        <template #footer>
+            <Button label="Cancel" outlined @click="exchangeModal = false" />
+            <Button label="Send" :loading="isSubmittingExchange" @click="submitExchange" />
+        </template>
+    </Dialog>
+
+    <!-- Exchange history modal -->
+    <Dialog v-model:visible="exchangeHistoryModal" header="Exchange history" modal :style="{ width: '480px' }">
+        <ul class="list-none p-0 m-0 space-y-3 max-h-80 overflow-y-auto">
+            <li v-for="ex in exchangeHistory" :key="ex.id"
+                class="py-2 border-b border-surface-200 dark:border-surface-700">
+                <div class="text-sm text-600 dark:text-400">{{ formatDate(ex.createdAt) }}</div>
+                <div class="font-medium">{{ formatExchangeMessage(ex) }}</div>
+                <div v-if="ex.message" class="text-sm text-surface-500">{{ ex.message }}</div>
+            </li>
+            <li v-if="exchangeHistory.length === 0" class="text-600 dark:text-400 py-4 text-center">No exchanges yet.
+            </li>
+        </ul>
+    </Dialog>
+</template>

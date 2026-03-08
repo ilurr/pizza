@@ -1,16 +1,33 @@
 <script setup lang="ts">
 import { useCartStore } from '@/stores/cartStore.js';
+import { computed } from 'vue';
 
 interface Props {
     visible?: boolean;
+    /** When set (e.g. offline cashier), use these instead of cartStore. Enables same component for driver. */
+    totalItems?: number;
+    formattedTotal?: string;
+    /** Bottom position: default 'bottom-0'. Use 'bottom-20' when page has a bottom menu (e.g. driver offline). */
+    bottomClass?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    visible: true,
+    bottomClass: 'bottom-0'
+});
+
 const emit = defineEmits<{
     'show-cart': [];
 }>();
 
 const cartStore = useCartStore();
+
+const isEmpty = computed(() => {
+    if (props.totalItems !== undefined) return props.totalItems === 0;
+    return cartStore.isEmpty;
+});
+const displayTotalItems = computed(() => props.totalItems ?? cartStore.totalItems);
+const displayFormattedTotal = computed(() => props.formattedTotal ?? cartStore.formattedTotalPrice);
 
 const showCartModal = () => {
     emit('show-cart');
@@ -23,8 +40,8 @@ const showCartModal = () => {
         enter-from-class="transform translate-y-full opacity-0" enter-to-class="transform translate-y-0 opacity-100"
         leave-active-class="transition-all duration-300 ease-in" leave-from-class="transform translate-y-0 opacity-100"
         leave-to-class="transform translate-y-full opacity-0">
-        <div v-if="!cartStore.isEmpty && visible"
-            class="fixed bottom-0 left-0 right-0 z-50 bg-papa-yellow dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+        <div v-if="!isEmpty && visible"
+            :class="['fixed left-0 right-0 z-50 m-3 rounded-xl bg-papa-yellow dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200', bottomClass]"
             @click="showCartModal">
             <div class="relative p-4 lg:px-80">
                 <div class="flex items-center justify-between">
@@ -35,20 +52,16 @@ const showCartModal = () => {
                         </div>
                         <div>
                             <p class="font-semibold text-gray-900 dark:text-white mb-0">
-                                Your Order: {{ cartStore.totalItems }} {{ cartStore.totalItems === 1 ? 'item' : 'items'
-                                }}
+                                Your Order: {{ displayTotalItems }} {{ displayTotalItems === 1 ? 'item' : 'items' }}
                             </p>
                             <p class="text-sm text-gray-800 dark:text-gray-400">
-                                Total: {{ cartStore.formattedTotalPrice }}
+                                Total: {{ displayFormattedTotal }}
                             </p>
                         </div>
                     </div>
 
                     <!-- Action Arrow -->
                     <div class="flex items-center justify-center w-[25px] md:w-auto md:gap-2 space-x-2">
-                        <!-- <span class="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
-                            Tap to view details
-                        </span> -->
                         <i class="pi pi-chevron-up text-gray-900 dark:text-gray-400 !text-xl !m-0"></i>
                     </div>
                 </div>
