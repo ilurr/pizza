@@ -2,8 +2,10 @@
 import AppTopbar from '@/layout/AppTopbar.vue';
 import NotificationService from '@/service/NotificationService.js';
 import PaymentService from '@/service/PaymentService.js';
+import api from '@/services/api/index.js';
 import { useCartStore } from '@/stores/cartStore.js';
 import { useOrderStore } from '@/stores/orderStore.js';
+import { useUserStore } from '@/stores/userStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -11,6 +13,7 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const cartStore = useCartStore();
 const orderStore = useOrderStore();
+const userStore = useUserStore();
 const toast = useToast();
 
 const isProcessingPayment = ref(false);
@@ -26,30 +29,81 @@ const goBack = () => {
     router.push('/order/now');
 };
 
-// Payment will be handled by Xendit/Midtrans gateway
+/** Build order payload and save to DB; returns created order or null. */
+const createOrderInDb = async () => {
+    const location = orderStore.userLocation;
+    const driver = orderStore.selectedDriver;
+    if (!location || !driver) return null;
+    const items = cartStore.items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity
+    }));
+    const orderData = {
+        customerId: userStore.user?.id ?? 'guest_user',
+        customerName: userStore.user?.fullname ?? 'Guest',
+        customerEmail: userStore.user?.email ?? '',
+        customerPhone: userStore.user?.phone ?? '',
+        items,
+        subtotal: cartStore.totalPrice,
+        deliveryFee: 0,
+        discount: cartStore.discountAmount ?? 0,
+        total: cartStore.finalTotal,
+        paymentMethod: 'QRIS',
+        deliveryAddress: {
+            address: location.address,
+            coordinates: { lat: location.lat, lng: location.lng },
+            kelurahanId: location.kelurahanId,
+            kelurahanName: location.kelurahanName
+        },
+        estimatedDelivery: new Date(Date.now() + 45 * 60000).toISOString(),
+        notes: '',
+        driverId: driver?.id ?? null,
+        driverInfo: driver ? { name: driver.name, phone: driver.phone, avatar: driver.avatar, rating: driver.rating } : null,
+        promoCode: cartStore.appliedPromo?.code ?? null,
+        promoTitle: cartStore.appliedPromo?.title ?? null
+    };
+    try {
+        const res = await api.orders.createOrder(orderData);
+        if (res?.success && res.data?.order) {
+            console.log('[Pay Now → Supabase] Order created:', {
+                orderId: res.data.order.id,
+                orderNumber: res.data.order.orderNumber,
+                status: res.data.order.status,
+                payment_status: res.data.order.paymentStatus
+            });
+            return res.data.order;
+        }
+        console.error('[Pay Now → Supabase] Create order failed:', res?.error?.message ?? res ?? 'Unknown error');
+        return null;
+    } catch (e) {
+        console.error('[Pay Now → Supabase] Create order error:', e);
+        return null;
+    }
+};
 
-const createPaymentRequest = async () => {
-    const paymentData = {
-        external_id: PaymentService.generateExternalId(),
+/** Build payment request; external_id must be the order id after order is created. */
+const buildPaymentRequest = (orderId: string) => {
+    return {
+        external_id: orderId,
         amount: total.value,
         currency: 'IDR',
         customer: {
             name: orderStore.userLocation?.address || 'Customer',
-            email: 'customer@example.com'
+            email: userStore.user?.email || 'customer@example.com'
         },
         items: cartStore.items.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             price: item.price,
-            category: item.category
+            category: (item as { category?: string }).category
         })),
         delivery_address: orderStore.userLocation,
         chef: orderStore.selectedDriver,
         success_redirect_url: `${window.location.origin}/payment-success`,
         failure_redirect_url: `${window.location.origin}/payment-failed`
     };
-
-    return paymentData;
 };
 
 const processPayment = async () => {
@@ -62,24 +116,43 @@ const processPayment = async () => {
         });
         return;
     }
+    if (!orderStore.userLocation || !orderStore.selectedDriver) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Missing info',
+            detail: 'Please set delivery location and chef from Order Now.',
+            life: 3000
+        });
+        return;
+    }
 
     isProcessingPayment.value = true;
 
     try {
-        // Create payment request
-        const paymentData = await createPaymentRequest();
+        // 1) Save order to DB first (status: pending, payment_status: pending)
+        const order = await createOrderInDb();
+        if (!order) {
+            console.error('[Pay Now → Supabase] Aborting: order not created.');
+            toast.add({
+                severity: 'error',
+                summary: 'Order failed',
+                detail: 'Could not create order. Try again.',
+                life: 4000
+            });
+            return;
+        }
+        console.log('[Pay Now → Supabase] Proceeding to gateway for order:', order.id, order.orderNumber);
 
-        // Use PaymentService to create payment (in production, this calls your backend)
-        // For demo, we use the simulate method
+        // 2) Build payment with order id so gateway/webhook can link payment to order
+        const paymentData = buildPaymentRequest(order.id);
+
         const paymentResponse = await PaymentService.simulatePayment(paymentData);
 
-        // Add to pending payments for status tracking
         NotificationService.addPendingPayment(paymentData);
 
-        // Open payment gateway in new tab
+        // 3) Open payment gateway
         paymentWindow.value = window.open(paymentResponse.checkout_url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
 
-        // Monitor payment window
         const checkClosed = setInterval(() => {
             if (paymentWindow.value?.closed) {
                 clearInterval(checkClosed);
@@ -87,7 +160,6 @@ const processPayment = async () => {
             }
         }, 1000);
 
-        // Simulate payment callback for demo (in real app, this comes from Xendit webhook)
         NotificationService.simulatePaymentCallback(paymentData.external_id, 'PAID');
 
         toast.add({
@@ -97,7 +169,7 @@ const processPayment = async () => {
             life: 5000
         });
     } catch (error) {
-        console.error('Payment error:', error);
+        console.error('[Pay Now → Supabase] Payment flow error:', error);
         toast.add({
             severity: 'error',
             summary: 'Payment Error',
@@ -115,14 +187,23 @@ const setupNotificationListeners = () => {
         toast.add(toastData);
     });
 
-    NotificationService.on('payment_update', (notification) => {
+    NotificationService.on('payment_update', async (notification) => {
         console.log('Payment update received:', notification);
 
-        // Handle successful payment
         if (notification.status === 'PAID') {
-            // Clear cart and redirect to success page after a delay
+            // external_id is the order id (set when we created order before opening gateway)
+            const orderId = notification.external_id;
+            if (orderId) {
+                try {
+                    await api.orders.updateOrderStatus(orderId, 'pending', { payment_status: 'paid' });
+                    console.log('[Pay Now → Supabase] Order payment_status updated to paid:', orderId);
+                } catch (e) {
+                    console.error('[Pay Now → Supabase] Failed to update order payment_status:', orderId, e);
+                }
+            }
             setTimeout(() => {
                 cartStore.clearCart();
+                orderStore.resetOrder();
                 router.push('/order/my');
             }, 3000);
         }
@@ -140,8 +221,8 @@ const handlePaymentWindowClosed = () => {
 
 // Cleanup function
 const cleanup = () => {
-    NotificationService.off('show_toast', () => {});
-    NotificationService.off('payment_update', () => {});
+    NotificationService.off('show_toast', () => { });
+    NotificationService.off('payment_update', () => { });
 };
 
 // Check if cart is empty on mount
@@ -175,9 +256,10 @@ onUnmounted(() => {
             <app-topbar variant="page-header" page-title="Payment Summary" @back="goBack"></app-topbar>
 
             <div class="relative lg:max-w-screen-lg mx-auto pt-16 md:pt-16 md:px-4 mb-32">
-                <div class="relative p-4 md:p-0">
+                <div class="relative p-4 lg:p-0">
                     <!-- Order Summary Section -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h2>
 
                         <!-- Delivery Info -->
@@ -186,26 +268,31 @@ onUnmounted(() => {
                                 <i class="pi pi-map-marker text-green-600 mt-1"></i>
                                 <div>
                                     <p class="font-medium text-gray-900 dark:text-white mb-0">Delivery Address</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ orderStore.userLocation?.address }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{
+                                        orderStore.userLocation?.address }}</p>
                                 </div>
                             </div>
                             <div class="flex items-start space-x-3 mt-3">
                                 <i class="pi pi-user text-blue-600 mt-1"></i>
                                 <div>
                                     <p class="font-medium text-gray-900 dark:text-white mb-0">Chef</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ orderStore.selectedDriver?.name }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{
+                                        orderStore.selectedDriver?.name }}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Items List -->
                         <div class="space-y-3 mb-4">
-                            <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                            <div v-for="item in cartStore.items" :key="item.id"
+                                class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
                                 <div class="flex-1">
                                     <p class="font-medium text-gray-900 dark:text-white mb-0">{{ item.name }}</p>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.quantity }} × Rp{{ item.price.toLocaleString('id-ID') }}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.quantity }} × Rp{{
+                                        item.price.toLocaleString('id-ID') }}</p>
                                 </div>
-                                <p class="font-medium text-gray-900 dark:text-white">Rp{{ (item.price * item.quantity).toLocaleString('id-ID') }}</p>
+                                <p class="font-medium text-gray-900 dark:text-white">Rp{{ (item.price *
+                                    item.quantity).toLocaleString('id-ID') }}</p>
                             </div>
                         </div>
 
@@ -221,12 +308,15 @@ onUnmounted(() => {
                             </div>
 
                             <!-- Applied Promo Display -->
-                            <div v-if="cartStore.appliedPromo" class="flex justify-between items-center mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                            <div v-if="cartStore.appliedPromo"
+                                class="flex justify-between items-center mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
                                 <div class="flex items-center space-x-2">
                                     <i class="pi pi-tag text-blue-600"></i>
                                     <div>
-                                        <span class="text-sm font-medium text-blue-800 dark:text-blue-200">{{ cartStore.appliedPromo.code }}</span>
-                                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-0">{{ cartStore.appliedPromo.title }}</p>
+                                        <span class="text-sm font-medium text-blue-800 dark:text-blue-200">{{
+                                            cartStore.appliedPromo.code }}</span>
+                                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-0">{{
+                                            cartStore.appliedPromo.title }}</p>
                                     </div>
                                 </div>
                                 <!-- <span class="font-medium text-green-600">-{{ cartStore.formattedDiscount }}</span> -->
@@ -241,33 +331,40 @@ onUnmounted(() => {
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
                                 <div class="flex justify-between items-center">
                                     <span class="text-lg font-semibold">Total</span>
-                                    <span class="text-lg font-bold text-red-600">{{ cartStore.formattedFinalTotal }}</span>
+                                    <span class="text-lg font-bold text-red-600">{{ cartStore.formattedFinalTotal
+                                        }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Payment Gateway Info -->
-                    <div class="shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 flex items-center space-x-3 p-4 gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div
+                        class="shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 flex items-center space-x-3 p-4 gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <!-- <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Payment</h2> -->
 
                         <!-- <div class="flex items-center space-x-3 p-4 gap-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"> -->
                         <i class="pi pi-shield text-blue-600 !text-2xl"></i>
                         <div>
                             <p class="font-medium text-gray-900 dark:text-white mb-1">Secure Payment</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">Choose from various payment methods including Credit Card, Bank Transfer, E-Wallet (OVO, GoPay, Dana), and QRIS in the next step.</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Choose from various payment methods
+                                including Credit Card, Bank Transfer, E-Wallet (OVO, GoPay, Dana), and QRIS in the next
+                                step.</p>
                         </div>
                         <!-- </div> -->
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                         <div class="flex gap-4">
                             <Button label="Back to Cart" outlined @click="goBack" class="flex-1" />
-                            <Button label="Pay Now" :loading="isProcessingPayment" @click="processPayment" class="flex-1 bg-red-500 hover:bg-red-600 border-red-500" />
+                            <Button label="Pay Now" :loading="isProcessingPayment" @click="processPayment"
+                                class="flex-1 bg-red-500 hover:bg-red-600 border-red-500" />
                         </div>
 
-                        <p class="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">Your payment will be processed securely through Xendit</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">Your payment will be
+                            processed securely through Xendit</p>
                     </div>
                 </div>
             </div>

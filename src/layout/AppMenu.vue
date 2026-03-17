@@ -26,15 +26,11 @@ const adminModel = ref([
 // Driver menu structure
 const driverModel = ref([
     {
-        label: 'Operations',
+        label: 'Chef Menu',
         items: [
             { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/driver' },
-            { label: 'Order Requests', icon: 'pi pi-fw pi-bell', to: '/driver/orders' }
-        ]
-    },
-    {
-        label: 'Management',
-        items: [
+            { label: 'Walk-in Cashier', icon: 'pi pi-fw pi-money-bill', to: '/driver/order/offline' },
+            { label: 'Delivery Orders', icon: 'pi pi-fw pi-truck', to: '/driver/orders/online' },
             { label: 'Stock Inventory', icon: 'pi pi-fw pi-box', to: '/driver/stock' },
             { label: 'Earnings', icon: 'pi pi-fw pi-wallet', to: '/driver/earnings' }
         ]

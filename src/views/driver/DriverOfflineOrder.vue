@@ -182,7 +182,7 @@ onMounted(() => loadMenu());
 
             <!-- Same FloatingCart as user; higher position (bottom-20) so it sits above driver bottom menu -->
             <FloatingCart :visible="true" :total-items="cartTotalItems" :formatted-total="formatCurrency(subtotal)"
-                bottom-class="bottom-20" @show-cart="showCartModal = true" />
+                bottom-class="bottom-20 md:bottom-24" @show-cart="showCartModal = true" />
         </template>
     </div>
 </template>

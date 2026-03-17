@@ -41,9 +41,9 @@ const showCartModal = () => {
         leave-active-class="transition-all duration-300 ease-in" leave-from-class="transform translate-y-0 opacity-100"
         leave-to-class="transform translate-y-full opacity-0">
         <div v-if="!isEmpty && visible"
-            :class="['fixed left-0 right-0 z-50 m-3 rounded-xl bg-papa-yellow dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200', bottomClass]"
+            :class="['fixed left-0 md:left-1/2 md:-translate-x-1/2 z-50 m-3 md:mx-0 rounded-xl w-[calc(100vw-1.5rem)] max-w-3xl bg-papa-yellow dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200', bottomClass]"
             @click="showCartModal">
-            <div class="relative p-4 lg:px-80">
+            <div class="relative p-4 lg:px-8 mx-auto">
                 <div class="flex items-center justify-between">
                     <!-- Cart Summary -->
                     <div class="flex items-center space-x-3">

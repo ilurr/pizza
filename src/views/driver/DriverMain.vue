@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from '@/components/shared/UserAvatar.vue';
 import api from '@/services/api/index.js';
 import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
@@ -13,6 +14,13 @@ const refreshInterval = ref(null);
 const recentOrders = ref([]);
 const isLoadingRecentOrders = ref(false);
 const driverRating = ref(null);
+const todayEarnings = ref(0);
+const coverageKelurahan = ref([]);
+
+const coverageLabel = computed(() => {
+	if (!coverageKelurahan.value.length) return '—';
+	return coverageKelurahan.value.map((k) => k.name).join(', ');
+});
 
 // Computed properties
 const statusColor = computed(() => {
@@ -65,7 +73,7 @@ const quickStats = computed(() => [
 	},
 	{
 		title: 'Total earned',
-		value: driverStore.stats.todayEarnings ?? 0,
+		value: todayEarnings.value ?? 0,
 		icon: 'pi pi-wallet',
 		color: 'purple',
 		subtitle: "Today's Earnings",
@@ -115,6 +123,25 @@ const fetchRecentOrders = async () => {
 	}
 };
 
+const fetchTodayEarnings = async () => {
+	const driverId = userStore.user?.id;
+	if (!driverId) {
+		todayEarnings.value = 0;
+		return;
+	}
+	try {
+		const res = await api.drivers.getDriverEarnings(driverId, 'today');
+		if (res?.success && res.data?.report) {
+			todayEarnings.value = res.data.report.totalEarnings ?? 0;
+		} else {
+			todayEarnings.value = 0;
+		}
+	} catch (e) {
+		console.error('Failed to load today earnings:', e);
+		todayEarnings.value = 0;
+	}
+};
+
 const fetchDriverRating = async () => {
 	const driverId = userStore.user?.id;
 	if (!driverId) {
@@ -154,10 +181,26 @@ const formatTime = (dateString) => {
 	});
 };
 
+const fetchCoverageKelurahan = async () => {
+	try {
+		const id = userStore.user?.id;
+		if (!id) return;
+		const res = await api.drivers.getDriverKelurahan(id);
+		if (res?.success && res.data?.kelurahan) {
+			coverageKelurahan.value = res.data.kelurahan;
+		} else {
+			coverageKelurahan.value = [];
+		}
+	} catch (error) {
+		console.error('Failed to load driver kelurahan:', error);
+		coverageKelurahan.value = [];
+	}
+};
+
 // Lifecycle
 onMounted(async () => {
 	await driverStore.initializeDriver('driver_001');
-	await Promise.all([fetchRecentOrders(), fetchDriverRating()]);
+	await Promise.all([fetchRecentOrders(), fetchDriverRating(), fetchTodayEarnings(), fetchCoverageKelurahan()]);
 
 	// Set up periodic refresh
 	refreshInterval.value = setInterval(refreshData, 30000); // Every 30 seconds
@@ -171,7 +214,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<div class="relative p-4 md:p-0">
+	<div class="relative p-4 lg:p-0">
 		<!-- Header with Driver Status -->
 		<h3 class="text-surface-900 dark:text-surface-0 text-xl font-bold !mt-2 mb-4 text-left px-2">👋 Welcome back,
 			Chef!</h3>
@@ -180,7 +223,8 @@ onUnmounted(() => {
 			<div class="flex flex-col gap-4 items-center">
 				<div class="flex items-center gap-4 w-full">
 					<div class="flex items-center gap-4">
-						<Avatar :image="userStore.user?.avatar" size="xlarge" shape="circle" />
+						<UserAvatar :avatar="userStore.user?.avatar || ''"
+							:name="userStore.user?.fullname || userStore.user?.username || ''" size="xlarge" />
 						<div>
 							<div class="font-medium text-xl text-gray-900 dark:text-white mb-1 truncate">{{
 								userStore.user?.fullname || userStore.user?.username || 'Driver' }}</div>
@@ -210,8 +254,11 @@ onUnmounted(() => {
 						<!-- <Button label="Refresh" icon="pi pi-refresh" @click="refreshData" :loading="driverStore.isLoadingOrders" outlined size="small" /> -->
 					</div>
 				</div>
-				<div class="relative text-base/6 w-full pt-4 border-t">Your coverage area: <br /><strong>Gayungan,
-						Tambaksari, Gubeng, Wonorejo</strong></div>
+				<div class="relative text-base/6 w-full pt-4 border-t">
+					Your coverage area:
+					<br />
+					<strong>{{ coverageLabel }}</strong>
+				</div>
 				<div class="flex items-center justify-between text-base/6 w-full">
 					<div class="inline-flex items-center gap-1">
 						Your overall rating:
@@ -231,7 +278,7 @@ onUnmounted(() => {
 				:to="stat.path || undefined"
 				class="rounded-xl border-2 bg-white dark:bg-neutral-800 border-surface-200 dark:border-surface-700 overflow-hidden transition-shadow hover:shadow-sm block"
 				:class="{ 'cursor-pointer': stat.path }">
-				<div class="p-5 flex flex-col items-center text-center gap-3">
+				<div class="p-5 md:py-5 md:px-6 flex flex-col md:flex-row items-center text-center gap-3 md:gap-6">
 					<span class="flex items-center justify-center w-14 h-14 rounded-2xl shrink-0" :class="{
 						'bg-orange-200/60 dark:bg-orange-700/40': stat.color === 'orange',
 						'bg-blue-200/60 dark:bg-blue-700/40': stat.color === 'blue',
@@ -246,8 +293,8 @@ onUnmounted(() => {
 							stat.color === 'purple' && 'text-purple-500'
 						]"></i>
 					</span>
-					<div class="min-w-0 w-full">
-						<div class="text-600 dark:text-400 mb-0.5">{{ stat.title }}</div>
+					<div class="min-w-0 w-full md:w-auto md:text-left md:flex-1">
+						<div class="text-600 dark:text-400 mb-0.5 md:hidden">{{ stat.title }}</div>
 						<div class="text-2xl font-bold text-900 dark:text-white truncate">
 							{{ stat.isCurrency ? formatCurrency(stat.value) : stat.value }}
 						</div>

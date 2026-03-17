@@ -1,8 +1,10 @@
 <script setup>
 import FloatingMenu from '@/components/landing/FloatingMenu.vue';
 import { useLayout } from '@/layout/composables/layout';
+import api from '@/services/api/index.js';
 import { useDriverStore } from '@/stores/driverStore.js';
-import { computed, ref, watch } from 'vue';
+import { useUserStore } from '@/stores/userStore';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppFooter from './AppFooter.vue';
 import AppSidebar from './AppSidebar.vue';
@@ -11,6 +13,7 @@ import AppTopbar from './AppTopbar.vue';
 const route = useRoute();
 const router = useRouter();
 const driverStore = useDriverStore();
+const userStore = useUserStore();
 const { layoutConfig, layoutState, isSidebarActive } = useLayout();
 
 const isDriverRoute = computed(() => route.path.startsWith('/driver'));
@@ -37,8 +40,28 @@ const driverMenuItems = [
     { path: '/driver/earnings', label: 'Earnings', icon: 'pi-wallet' }
 ];
 
+const driverOnlineOrdersCount = ref(0);
+const driverOrdersInterval = ref(null);
+
+const refreshDriverOnlineOrdersCount = async () => {
+    const driverId = userStore.user?.id;
+    if (!driverId) {
+        driverOnlineOrdersCount.value = 0;
+        return;
+    }
+    try {
+        const res = await api.orders.getDriverOrders(driverId);
+        const list = res?.success && res.data?.orders ? res.data.orders : [];
+        const active = list.filter((o) => !['delivered', 'cancelled'].includes(o.status));
+        driverOnlineOrdersCount.value = active.length;
+    } catch (error) {
+        console.error('Failed to refresh driver online orders count:', error);
+        driverOnlineOrdersCount.value = 0;
+    }
+};
+
 const driverBadgeCounts = computed(() => ({
-    '/driver/orders/online': driverStore.ordersRequiringAction?.length ?? 0
+    '/driver/orders/online': driverOnlineOrdersCount.value
 }));
 
 const outsideClickListener = ref(null);
@@ -48,6 +71,32 @@ watch(isSidebarActive, (newVal) => {
         bindOutsideClickListener();
     } else {
         unbindOutsideClickListener();
+    }
+});
+
+watch(isDriverRoute, (newVal) => {
+    if (newVal) {
+        refreshDriverOnlineOrdersCount();
+        if (!driverOrdersInterval.value) {
+            driverOrdersInterval.value = setInterval(refreshDriverOnlineOrdersCount, 30000);
+        }
+    } else if (driverOrdersInterval.value) {
+        clearInterval(driverOrdersInterval.value);
+        driverOrdersInterval.value = null;
+    }
+});
+
+onMounted(() => {
+    if (isDriverRoute.value) {
+        refreshDriverOnlineOrdersCount();
+        driverOrdersInterval.value = setInterval(refreshDriverOnlineOrdersCount, 30000);
+    }
+});
+
+onUnmounted(() => {
+    if (driverOrdersInterval.value) {
+        clearInterval(driverOrdersInterval.value);
+        driverOrdersInterval.value = null;
     }
 });
 

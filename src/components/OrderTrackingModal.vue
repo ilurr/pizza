@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import api from '@/services/api/index.js';
 import StarRating from '@/components/StarRating.vue';
 import { useLeaflet } from '@/composables/useLeaflet';
 import { useTrackingService } from '@/composables/useTrackingService';
-import NotificationService from '@/service/NotificationService.js';
 import { useOrderStore } from '@/stores/orderStore.js';
 import { computed, onUnmounted, ref, watch } from 'vue';
 
@@ -24,6 +24,9 @@ const selectedFoodRating = ref(0);
 const selectedDriverRating = ref(0);
 
 const orderStore = useOrderStore();
+
+const tracking = ref<any | null>(null);
+const trackingLoading = ref(false);
 
 const {
 	userPosition,
@@ -50,7 +53,6 @@ const {
 const map = ref<any>(null);
 const mapContainer = ref<HTMLElement | null>(null);
 const refreshing = ref(false);
-const proximityNotified = ref(false);
 
 // Computed properties
 const isVisible = computed({
@@ -59,7 +61,8 @@ const isVisible = computed({
 });
 
 const orderCanBeTracked = computed(() => {
-	return ['waiting', 'on_delivery'].includes(currentOrder.value?.status);
+	const status = tracking.value?.currentStatus || currentOrder.value?.status;
+	return ['pending', 'assigned', 'preparing', 'on_delivery'].includes(status);
 });
 
 const formatDate = (dateString: string) => {
@@ -78,75 +81,22 @@ const formatTime = (dateString: string) => {
 	});
 };
 
-// Sample driver data consistent with OrderNow.vue structure
-const sampleDrivers = [
-	{
-		id: 1,
-		name: 'Cak Gilang',
-		rating: 4.8,
-		phone: '081234567888',
-		avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg'
-	},
-	{
-		id: 2,
-		name: 'Pak Agus',
-		rating: 4.8,
-		phone: '081234567899',
-		avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg'
-	},
-	{
-		id: 3,
-		name: 'Cak Bram',
-		rating: 4.9,
-		phone: '081234567777',
-		avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_27_00_1718623620_0961d218aa38beb0aa77.jpg'
-	}
-];
-
-// Sample pizza order data for when no real order is provided
-const sampleOrder = {
-	id: 'order_sample_001',
-	orderNumber: 'PZ-2024-006',
-	customerName: 'John Doe',
-	orderDate: new Date().toISOString(),
-	status: 'on_delivery',
-	items: [
-		{
-			id: 'pizza002',
-			name: 'Pepperoni Supreme',
-			quantity: 1,
-			price: 75000,
-			total: 75000
-		},
-		{
-			id: 'pizza001',
-			name: 'Margherita Classic',
-			quantity: 2,
-			price: 45000,
-			total: 90000
-		},
-		{
-			id: 'drink001',
-			name: 'Coca Cola',
-			quantity: 2,
-			price: 12000,
-			total: 24000
-		}
-	],
-	subtotal: 189000,
-	discount: 0,
-	total: 189000,
-	paymentMethod: 'QRIS',
-	notes: 'Extra spicy sauce, no onions'
-};
-
-// Use sample order if no real order provided
 const currentOrder = computed(() => {
-	return props.order || sampleOrder;
+	return props.order || null;
 });
 
 const driverInfo = computed(() => {
-	// Use driver data from order store if available
+	// Prefer driver info from tracking (Supabase orders.driver_info)
+	if (tracking.value?.driverInfo) {
+		return tracking.value.driverInfo;
+	}
+
+	// Fallback: driver data from order (if any)
+	if (currentOrder.value?.driverInfo) {
+		return currentOrder.value.driverInfo;
+	}
+
+	// Fallback: driver selected during ordering
 	if (orderStore.selectedDriver) {
 		return {
 			name: orderStore.selectedDriver.name,
@@ -156,45 +106,19 @@ const driverInfo = computed(() => {
 		};
 	}
 
-	// Use sample driver (Pak Agus) as fallback with complete data structure
-	const defaultDriver = sampleDrivers.find(driver => driver.name === 'Pak Agus') || sampleDrivers[1];
-	return {
-		name: defaultDriver.name,
-		avatar: defaultDriver.avatar,
-		phone: defaultDriver.phone,
-		rating: defaultDriver.rating
-	};
+	return null;
 });
 
 const estimatedArrival = computed(() => {
-	if (!driverPosition.value || !userPosition.value) {
-		// Provide fallback data while positions are being loaded
-		return {
-			distance: '2.5',
-			minutes: 15,
-			time: new Date(Date.now() + 15 * 60000).toLocaleTimeString('id-ID', {
-				hour: '2-digit',
-				minute: '2-digit'
-			})
-		};
-	}
-
-	const distance = calculateDistance(
-		driverPosition.value.lat,
-		driverPosition.value.lng,
-		userPosition.value.lat,
-		userPosition.value.lng
-	);
-
-	// Estimate 2 minutes per km
-	const estimatedMinutes = Math.ceil(distance * 2);
-	const arrivalTime = new Date();
-	arrivalTime.setMinutes(arrivalTime.getMinutes() + estimatedMinutes);
-
+	const eta = tracking.value?.estimatedDelivery;
+	if (!eta) return null;
+	const now = new Date();
+	const etaDate = new Date(eta);
+	const diffMs = etaDate.getTime() - now.getTime();
+	const minutes = Math.max(0, Math.round(diffMs / 60000));
 	return {
-		distance: distance.toFixed(1),
-		minutes: estimatedMinutes,
-		time: arrivalTime.toLocaleTimeString('id-ID', {
+		minutes,
+		time: etaDate.toLocaleTimeString('id-ID', {
 			hour: '2-digit',
 			minute: '2-digit'
 		})
@@ -202,43 +126,35 @@ const estimatedArrival = computed(() => {
 });
 
 // Methods
+const loadTracking = async () => {
+	if (!currentOrder.value?.id) {
+		tracking.value = null;
+		return;
+	}
+	trackingLoading.value = true;
+	try {
+		const res = await api.orders.getOrderTracking(currentOrder.value.id);
+		tracking.value = res?.success ? res.data : null;
+	} catch (error) {
+		console.error('Failed to load order tracking:', error);
+		tracking.value = null;
+	} finally {
+		trackingLoading.value = false;
+	}
+};
+
 const initializeMap = async () => {
 	if (!mapContainer.value) return;
 
 	try {
-		// Get user location first
-		await getLocation();
-
-		if (!userPosition.value) {
-			console.error('Unable to get user location');
-			return;
-		}
-
 		// Clean up existing map
 		if (map.value) {
 			map.value.remove();
 			map.value = null;
 		}
 
-		// Create map using global Leaflet composable
-		map.value = await createMap(
-			mapContainer.value,
-			[userPosition.value.lat, userPosition.value.lng],
-			15
-		);
-
-		// Add user marker
-		await addMarker(map.value, userPosition.value.lat, userPosition.value.lng, {
-			icon: await createUserMarkerIcon(),
-			popup: 'Your Location'
-		});
-
-		// Simulate driver position and add marker
-		updateDriverPosition();
-
-		if (driverPosition.value) {
-			await addDriverMarker();
-		}
+		// Create a basic map centered on a default city (fallback until we have precise coords)
+		map.value = await createMap(mapContainer.value, [-7.2575, 112.7521], 13);
 
 	} catch (error) {
 		console.error('Error initializing map:', error);
@@ -332,59 +248,13 @@ const refreshTracking = async () => {
 	refreshing.value = true;
 
 	try {
-		// Update driver position
-		updateDriverPosition();
-
-		// Update map if driver position changed
-		if (map.value && driverPosition.value) {
-			// Clear existing markers and routes
-			await clearMarkers(map.value);
-			await clearRoutes(map.value);
-
-			// Re-add markers
-			await addMarker(map.value, userPosition.value.lat, userPosition.value.lng, {
-				icon: await createUserMarkerIcon(),
-				popup: 'Your Location'
-			});
-
-			await addDriverMarker();
-		}
-
-		// Check proximity and send notification
-		checkProximity();
-
+		await loadTracking();
 	} catch (error) {
 		console.error('Error refreshing tracking:', error);
 	} finally {
 		setTimeout(() => {
 			refreshing.value = false;
 		}, 1000);
-	}
-};
-
-const checkProximity = () => {
-	if (!userPosition.value || !driverPosition.value || proximityNotified.value) return;
-
-	const distance = calculateDistance(
-		driverPosition.value.lat,
-		driverPosition.value.lng,
-		userPosition.value.lat,
-		userPosition.value.lng
-	);
-
-	// Notify when driver is within 500 meters
-	if (distance <= 0.5) {
-		proximityNotified.value = true;
-
-		NotificationService.create({
-			title: 'Driver Almost Arrived!',
-			message: `${driverInfo.value.name} is nearby. Please prepare to meet the driver.`,
-			type: 'delivery_update',
-			data: {
-				orderId: props.order.id,
-				driverDistance: distance
-			}
-		});
 	}
 };
 
@@ -409,24 +279,35 @@ const hasFoodRating = (order: any) => (foodScore(order) || selectedFoodRating.va
 const hasDriverRating = (order: any) => (driverScore(order) || selectedDriverRating.value) > 0;
 
 // Lifecycle
-watch(() => props.visible, (newVal) => {
-	if (newVal && props.order) {
-		selectedFoodRating.value = foodScore(props.order);
-		selectedDriverRating.value = driverScore(props.order);
+watch(
+	() => props.visible,
+	(newVal) => {
+		if (newVal && props.order) {
+			selectedFoodRating.value = foodScore(props.order);
+			selectedDriverRating.value = driverScore(props.order);
+			loadTracking();
+			if (orderCanBeTracked.value) {
+				setTimeout(() => {
+					initializeMap();
+				}, 300); // Wait for modal to render
+			}
+		}
 	}
-	if (newVal && props.order && orderCanBeTracked.value) {
-		setTimeout(() => {
-			initializeMap();
-		}, 300); // Wait for modal to render
-	}
-});
+);
 
-watch(() => props.order, (order) => {
-	if (order) {
-		selectedFoodRating.value = foodScore(order);
-		selectedDriverRating.value = driverScore(order);
-	}
-}, { immediate: true });
+watch(
+	() => props.order,
+	(order) => {
+		if (order) {
+			selectedFoodRating.value = foodScore(order);
+			selectedDriverRating.value = driverScore(order);
+			loadTracking();
+		} else {
+			tracking.value = null;
+		}
+	},
+	{ immediate: true }
+);
 
 onUnmounted(() => {
 	if (map.value) {
@@ -482,7 +363,7 @@ onUnmounted(() => {
 						<div class="flex-1">
 							<p class="font-medium text-lg mb-0">{{ driverInfo.name }}</p>
 							<div v-if="estimatedArrival" class="text-sm text-gray-600 dark:text-gray-400">
-								<p>📍 {{ estimatedArrival.distance }} km away</p>
+								<p>Estimated arrival: {{ estimatedArrival.time }}</p>
 							</div>
 
 							<!-- <div class="flex items-center gap-1">
@@ -494,24 +375,38 @@ onUnmounted(() => {
 					</div>
 					<div class="flex items-center gap-3 mt-4 pt-4 border-t">
 						<div class="flex-1">
-							<!-- Chef has arrived -->
-							<p v-if="estimatedArrival.minutes <= 1" class="font-sm text-sm mb-1">
-								🎉 Yay! Your chef is here! Time to grab your delicious pizza!
+							<p v-if="estimatedArrival" class="font-sm text-sm mb-1">
+								Your chef is on the way! Estimated arrival:
+								<span
+									class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold"
+								>
+									{{ estimatedArrival.time }} ({{ estimatedArrival.minutes }} mins)
+								</span>
 							</p>
-							<!-- Chef is near (under 3 minutes) -->
-							<p v-else-if="estimatedArrival.minutes < 3" class="font-sm text-sm mb-1">
-								🔥 Almost there! Your chef is nearby - get ready for some amazing pizza!
+							<p v-else class="font-sm text-sm mb-1">
+								Your chef is on the way. Estimated time will appear here once available.
 							</p>
-							<!-- Normal arrival time -->
-							<p v-else class="font-sm text-sm mb-1">Your chef is on the way! Arriving in: <span
-									class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">{{
-										estimatedArrival.minutes }} mins</span></p>
 						</div>
-						<!-- Call button when arrived, Refresh button otherwise -->
-						<Button v-if="estimatedArrival.minutes <= 1" icon="pi pi-phone" rounded size="small" severity="success"
-							:onclick="`tel:${driverInfo.phone}`" label="Call" title="Call driver" />
-						<Button v-else icon="pi pi-refresh" outlined rounded size="small" @click="refreshTracking"
-							:loading="refreshing" label="Refresh" title="Refresh tracking" />
+						<Button
+							v-if="driverInfo?.phone"
+							icon="pi pi-phone"
+							rounded
+							size="small"
+							severity="success"
+							:onclick="`tel:${driverInfo.phone}`"
+							label="Call"
+							title="Call driver"
+						/>
+						<Button
+							icon="pi pi-refresh"
+							outlined
+							rounded
+							size="small"
+							@click="refreshTracking"
+							:loading="refreshing || trackingLoading"
+							label="Refresh"
+							title="Refresh tracking"
+						/>
 					</div>
 				</div>
 
@@ -524,7 +419,7 @@ onUnmounted(() => {
 					</div>
 					<p class="text-lg font-semibold text-green-800 dark:text-green-200">{{ estimatedArrival.time }}</p>
 					<p class="text-sm text-green-600 dark:text-green-300">
-						~{{ estimatedArrival.minutes }} minutes • {{ estimatedArrival.distance }} km away
+						~{{ estimatedArrival.minutes }} minutes
 					</p>
 				</div> -->
 

@@ -36,8 +36,10 @@ const getStatusColor = (status: string) => {
 			return 'bg-green-200 text-green-800';
 		case 'preparing':
 			return 'bg-blue-200 text-blue-800';
-		case 'waiting':
+		case 'pending':
 			return 'bg-orange-200 text-orange-800';
+		case 'assigned':
+			return 'bg-indigo-200 text-indigo-800';
 		case 'on_delivery':
 			return 'bg-yellow-200 text-yellow-800';
 		case 'cancelled':
@@ -69,7 +71,7 @@ const openTracking = (order: any) => {
 };
 
 const canTrackOrder = (status: string) => {
-	return ['waiting', 'on_delivery'].includes(status);
+	return ['pending', 'assigned', 'preparing', 'on_delivery'].includes(status);
 };
 
 const handleCardClick = (order: any) => {

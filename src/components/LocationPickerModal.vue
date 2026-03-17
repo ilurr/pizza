@@ -10,6 +10,8 @@ interface Location {
     lat: number;
     lng: number;
     address: string;
+    kelurahanId?: string;
+    kelurahanName?: string;
 }
 
 interface Props {
@@ -354,8 +356,18 @@ const getAddressFromCoords = async (lat: number, lng: number): Promise<string> =
 };
 
 
-const confirmLocation = () => {
-    if (selectedLocation.value) {
+const confirmLocation = async () => {
+    if (!selectedLocation.value) return;
+    try {
+        const res = await api.locations.getKelurahanForLocation(selectedLocation.value.lat, selectedLocation.value.lng);
+        const locationToEmit = { ...selectedLocation.value };
+        if (res?.success && res.data?.kelurahanId) {
+            locationToEmit.kelurahanId = res.data.kelurahanId;
+            locationToEmit.kelurahanName = res.data.kelurahanName;
+        }
+        emit('location-selected', locationToEmit);
+        closeModal();
+    } catch (e) {
         emit('location-selected', selectedLocation.value);
         closeModal();
     }

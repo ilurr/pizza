@@ -143,6 +143,40 @@ export class LocationApiService extends BaseApiService {
                 estimatedDeliveryTime: 35
             }
         ];
+
+    }
+
+    // Resolve user location to a kelurahan (nearest by center distance). Uses Supabase kelurahan table.
+    async getKelurahanForLocation(lat, lng) {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data: rows, error } = await supabase.from('kelurahan').select('id, name, city, province, center_lat, center_lng').eq('active', true);
+            if (!error && rows && rows.length > 0) {
+                let nearest = rows[0];
+                let minD = 1e9;
+                const R = 6371;
+                for (const k of rows) {
+                    const kLat = k.center_lat;
+                    const kLng = k.center_lng;
+                    const dLat = ((kLat - lat) * Math.PI) / 180;
+                    const dLng = ((kLng - lng) * Math.PI) / 180;
+                    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((kLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    const d = R * c;
+                    if (d < minD) {
+                        minD = d;
+                        nearest = k;
+                    }
+                }
+                return this.createMockResponse({
+                    kelurahanId: nearest.id,
+                    kelurahanName: nearest.name,
+                    city: nearest.city
+                });
+            }
+            if (error) return this.createMockError(error.message || 'Failed to fetch kelurahan', error.code || 500);
+        }
+        return this.createMockError('No kelurahan data. Run supabase-schema-kelurahan.sql and add kelurahan rows.', 500);
     }
 
     async getCoverageAreasFromSupabase(filters = {}) {

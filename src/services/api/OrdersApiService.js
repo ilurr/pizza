@@ -81,22 +81,24 @@ export class OrdersApiService extends BaseApiService {
                 order_number: `PZ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
                 customer_id: orderData.customerId || 'guest_user',
                 customer_name: orderData.customerName,
-                customer_phone: orderData.customerPhone,
-                customer_email: orderData.customerEmail,
+                customer_phone: orderData.customerPhone || null,
+                customer_email: orderData.customerEmail || null,
                 order_date: new Date().toISOString(),
                 status: 'pending',
-                items: orderData.items,
-                subtotal: orderData.subtotal,
-                delivery_fee: orderData.deliveryFee ?? 0,
-                discount: orderData.discount ?? 0,
-                total: orderData.total,
-                payment_method: orderData.paymentMethod,
+                items: orderData.items || [],
+                subtotal: Number(orderData.subtotal),
+                delivery_fee: Number(orderData.deliveryFee ?? 0),
+                discount: Number(orderData.discount ?? 0),
+                total: Number(orderData.total),
+                payment_method: orderData.paymentMethod || null,
                 payment_status: 'pending',
-                delivery_address: orderData.deliveryAddress,
+                delivery_address: orderData.deliveryAddress || {},
                 estimated_delivery: orderData.estimatedDelivery || new Date(Date.now() + 45 * 60000).toISOString(),
                 notes: orderData.notes || null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                promo_code: orderData.promoCode || null,
+                promo_title: orderData.promoTitle || null,
+                driver_id: orderData.driverId || null,
+                driver_info: orderData.driverInfo || null
             };
             const { data, error } = await supabase.from('orders').insert(newOrder).select().single();
             if (error) {
@@ -203,10 +205,10 @@ export class OrdersApiService extends BaseApiService {
             const order = res.data.order;
             const trackingSteps = [
                 { status: 'pending', label: 'Order Placed', timestamp: order.orderDate, completed: true, description: 'Your order has been received and is being processed' },
-                { status: 'confirmed', label: 'Order Confirmed', timestamp: order.confirmedAt, completed: !!order.confirmedAt, description: 'Your order has been confirmed and assigned to a chef' },
-                { status: 'preparing', label: 'Preparing', timestamp: order.preparingAt, completed: !!order.preparingAt, description: 'Chef is preparing your delicious pizza' },
-                { status: 'on_delivery', label: 'On Delivery', timestamp: order.onDeliveryAt, completed: !!order.onDeliveryAt, description: 'Chef is on the way to your location' },
-                { status: 'delivered', label: 'Delivered', timestamp: order.deliveredAt, completed: !!order.deliveredAt, description: 'Order delivered successfully!' }
+                { status: 'assigned', label: 'Order Confirmed', timestamp: order.updatedAt, completed: !['pending'].includes(order.status), description: 'Your order has been confirmed and assigned to a chef' },
+                { status: 'preparing', label: 'Preparing', timestamp: order.updatedAt, completed: ['preparing', 'on_delivery', 'delivered'].includes(order.status), description: 'Chef is preparing your delicious pizza' },
+                { status: 'on_delivery', label: 'On Delivery', timestamp: order.updatedAt, completed: ['on_delivery', 'delivered'].includes(order.status), description: 'Chef is on the way to your location' },
+                { status: 'delivered', label: 'Delivered', timestamp: order.deliveryTime || order.updatedAt, completed: order.status === 'delivered', description: 'Order delivered successfully!' }
             ];
             return this.createMockResponse({
                 orderId,
@@ -253,7 +255,7 @@ export class OrdersApiService extends BaseApiService {
                 favoriteItems: this.calculateFavoriteItems(userOrders),
                 ordersByStatus: {
                     pending: userOrders.filter((o) => o.status === 'pending').length,
-                    confirmed: userOrders.filter((o) => o.status === 'confirmed').length,
+                    assigned: userOrders.filter((o) => o.status === 'assigned').length,
                     preparing: userOrders.filter((o) => o.status === 'preparing').length,
                     on_delivery: userOrders.filter((o) => o.status === 'on_delivery').length,
                     delivered: userOrders.filter((o) => o.status === 'delivered').length,

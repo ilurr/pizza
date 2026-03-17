@@ -89,9 +89,9 @@ const loadUserOrders = async () => {
 		orderHistory.value = orders.filter(order =>
 			order.status === 'delivered' || order.status === 'cancelled'
 		);
-		// Filter orders for on progress (waiting, preparing, on_delivery)
+		// Filter orders for on progress (pending, assigned, preparing, on_delivery)
 		onProgressOrders.value = orders.filter(order =>
-			['waiting', 'preparing', 'on_delivery'].includes(order.status)
+			['pending', 'assigned', 'preparing', 'on_delivery'].includes(order.status)
 		);
 
 		// Auto-switch to "On Progress" tab if there are active orders

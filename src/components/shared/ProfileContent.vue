@@ -1,8 +1,8 @@
 <script setup>
 import ChangePasswordModal from '@/components/ChangePasswordModal.vue';
 import EditProfileModal from '@/components/EditProfileModal.vue';
+import UserAvatar from '@/components/shared/UserAvatar.vue';
 import { useAuth } from '@/composables/useAuth';
-import { useAvatar } from '@/composables/useAvatar';
 import { useUserStore } from '@/stores/userStore';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -30,9 +30,6 @@ const layoutContext = computed(() => {
 });
 
 const isDashboard = computed(() => layoutContext.value === 'dashboard');
-
-// Use shared avatar composable
-const { userInitials, bgColor } = useAvatar(computed(() => userStore.user?.username));
 
 // Modal states
 const showEditProfileModal = ref(false);
@@ -87,13 +84,11 @@ onMounted(async () => {
                 <div class="flex items-center gap-4">
                     <!-- Avatar -->
                     <div class="relative basis-1/6 w-1/6 grow-0">
-                        <div v-if="userStore.user?.avatar" class="w-auto overflow-hidden">
-                            <Avatar :image="userStore.user.avatar" size="large" shape="circle" />
-                            <!-- <img :src="userStore.user.avatar" :alt="userStore.user.username" class="w-full h-full object-cover" /> -->
-                        </div>
-                        <div v-else class="w-full aspect-square rounded-full flex items-center justify-center text-white text-2xl" :style="{ backgroundColor: bgColor }">
-                            {{ userInitials }}
-                        </div>
+                        <UserAvatar
+                            :avatar="userStore.user?.avatar || ''"
+                            :name="userStore.user?.fullname || userStore.user?.username || ''"
+                            size="large"
+                        />
                     </div>
 
                     <!-- User Info -->

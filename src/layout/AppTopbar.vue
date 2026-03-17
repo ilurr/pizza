@@ -1,7 +1,7 @@
 <script setup>
 import brandConfig from '@/brand/brandConfig.ts';
+import UserAvatar from '@/components/shared/UserAvatar.vue';
 import { useAuth } from '@/composables/useAuth';
-import { useAvatar } from '@/composables/useAvatar';
 import { useRoles } from '@/composables/useRoles';
 import { useLayout } from '@/layout/composables/layout';
 import NotificationService from '@/service/NotificationService.js';
@@ -71,9 +71,6 @@ const goBack = () => {
     emit('back');
 };
 
-// Use shared avatar composable
-const { userInitials, bgColor } = useAvatar(computed(() => userStore.user?.username));
-
 const notificationCount = ref(0);
 
 // Update notification count
@@ -141,7 +138,8 @@ onUnmounted(() => {
 
 <template>
     <div class="layout-topbar">
-        <div :class="['relative flex items-center justify-between w-full lg:max-w-screen-lg lg:px-4 mx-auto', classes]">
+        <div
+            :class="['relative flex items-center justify-between w-full lg:max-w-screen-lg lg:px-4 mx-auto lg:!max-w-full', classes]">
             <!-- Page Header Variant -->
             <div v-if="variant === 'page-header'" class="layout-topbar-logo-container">
                 <div class="flex items-center">
@@ -185,9 +183,8 @@ onUnmounted(() => {
                 <button class="layout-topbar-menu-button layout-topbar-action"
                     v-styleclass="{ selector: '@next', enterFromClass: 'hidden', enterActiveClass: 'animate-scalein', leaveToClass: 'hidden', leaveActiveClass: 'animate-fadeout', hideOnOutsideClick: true }"
                     v-if="canAccessDashboard">
-                    <Avatar v-if="userStore.user?.avatar" :image="userStore.user.avatar" size="small" shape="circle" />
-                    <Avatar v-else :label="userInitials" size="small" shape="circle"
-                        :style="{ backgroundColor: bgColor }" />
+                    <UserAvatar :avatar="userStore.user?.avatar || ''"
+                        :name="userStore.user?.fullname || userStore.user?.username || ''" size="small" />
                 </button>
 
                 <div class="layout-topbar-menu hidden">

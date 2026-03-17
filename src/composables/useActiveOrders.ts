@@ -9,8 +9,8 @@ export function useActiveOrders() {
     const isLoading = ref(false);
     let intervalId: NodeJS.Timeout | null = null;
 
-    // Define what statuses count as "active"
-    const activeStatuses = ['waiting', 'preparing', 'on_delivery'];
+    // Active = not yet delivered/cancelled (simplified status set)
+    const activeStatuses = ['pending', 'assigned', 'preparing', 'on_delivery'];
 
     const activeOrdersCount = computed(() => {
         return activeOrders.value.length;

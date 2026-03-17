@@ -1,7 +1,5 @@
 import { BaseApiService } from './ApiClient.js';
 import { getSupabaseClient } from '@/services/supabase/client.js';
-import driversData from '@/data/drivers.json';
-import driverNearbyDriversData from '@/data/driverNearbyDrivers.json';
 
 export class DriverApiService extends BaseApiService {
     constructor() {
@@ -12,27 +10,70 @@ export class DriverApiService extends BaseApiService {
     }
 
     initializeMockData() {
-        this.mockDrivers = JSON.parse(JSON.stringify(driversData)).map((d) => ({
-            ...d,
-            updatedAt: new Date().toISOString()
-        }));
+        this.mockDrivers = [];
         this._mockTransactions = [];
     }
 
-    // Get driver profile by ID
+    // Resolve driverId (integer or numeric string = app_users.id) to app_users row from Supabase
+    async _resolveDriverRow(supabase, driverId) {
+        const isNumeric = typeof driverId === 'number' || (typeof driverId === 'string' && /^\d+$/.test(driverId));
+        if (!isNumeric) return null;
+        const { data: row, error } = await supabase
+            .from('app_users')
+            .select('*')
+            .eq('id', Number(driverId))
+            .eq('role_type', 'drivers')
+            .maybeSingle();
+        if (error || !row) return null;
+        return row;
+    }
+
+    // For driver_stock, driver_daily_confirmations, etc.: use app_users.id as text (e.g. "5")
+    async _driverIdForTables(supabase, driverId) {
+        const row = await this._resolveDriverRow(supabase, driverId);
+        return row ? String(row.id) : (typeof driverId === 'string' ? driverId : String(driverId));
+    }
+
+    // Map app_users + optional profile + kelurahanIds to driver shape expected by app
+    _rowToDriver(userRow, profileRow, kelurahanIds = []) {
+        const id = String(userRow.id);
+        return {
+            id,
+            name: userRow.fullname || userRow.username,
+            email: userRow.email,
+            phone: userRow.phone || '',
+            avatar: userRow.avatar || '',
+            rating: profileRow ? Number(profileRow.rating) || 4.5 : 4.5,
+            totalDeliveries: profileRow?.total_deliveries ?? 0,
+            status: profileRow?.status || 'active',
+            isOnline: profileRow ? profileRow.is_online !== false : true,
+            isAvailable: profileRow ? profileRow.is_available !== false : true,
+            currentLocation: profileRow?.current_lat != null ? { lat: profileRow.current_lat, lng: profileRow.current_lng } : null,
+            vehicleInfo: profileRow ? { type: profileRow.vehicle_type || 'motorcycle', plate: profileRow.vehicle_plate || '', model: profileRow.vehicle_model || '' } : null,
+            kelurahanIds: kelurahanIds.length ? kelurahanIds : undefined,
+            createdAt: userRow.created_at,
+            updatedAt: userRow.updated_at
+        };
+    }
+
+    // Get driver profile by ID (app_users.id when using Supabase)
     async getDriverProfile(driverId) {
-        if (this.useMockApi) {
-            await this.mockDelay();
-
-            const driver = this.mockDrivers.find((d) => d.id === driverId);
-
-            if (!driver) {
-                return this.createMockError('Driver not found', 404);
-            }
-
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const userRow = await this._resolveDriverRow(supabase, driverId);
+            if (!userRow) return this.createMockError('Driver not found', 404);
+            const { data: kRows } = await supabase.from('driver_kelurahan').select('kelurahan_id').eq('driver_id', userRow.id);
+            const kelurahanIds = (kRows || []).map((r) => r.kelurahan_id);
+            const driver = this._rowToDriver(userRow, null, kelurahanIds);
             return this.createMockResponse({ driver });
         }
-
+        if (this.useMockApi) {
+            await this.mockDelay();
+            const driver = this.mockDrivers.find((d) => d.id === driverId);
+            if (!driver) return this.createMockError('Driver not found', 404);
+            return this.createMockResponse({ driver });
+        }
         return await this.get(`${this.endpoint}/${driverId}`);
     }
 
@@ -93,7 +134,8 @@ export class DriverApiService extends BaseApiService {
         if (this.dataSource === 'supabase') {
             const supabase = getSupabaseClient();
             if (!supabase) return this.createMockError('Supabase not configured', 500);
-            const { data: stockRows, error: e1 } = await supabase.from('driver_stock').select('*').eq('driver_id', driverId);
+            const tableDriverId = await this._driverIdForTables(supabase, driverId);
+            const { data: stockRows, error: e1 } = await supabase.from('driver_stock').select('*').eq('driver_id', tableDriverId);
             if (e1) return this.createMockError(e1.message || 'Failed to fetch stock', e1.code || 500);
             const productIds = [...new Set((stockRows || []).map((r) => r.product_id))];
             if (productIds.length === 0) return this.createMockResponse({ stock: [], metrics: { totalItems: 0, criticalItems: 0 } });
@@ -133,10 +175,11 @@ export class DriverApiService extends BaseApiService {
         if (this.dataSource === 'supabase') {
             const supabase = getSupabaseClient();
             if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const tableDriverId = await this._driverIdForTables(supabase, driverId);
             const { data, error } = await supabase
                 .from('driver_stock')
                 .update({ quantity: Math.max(0, quantity), updated_at: new Date().toISOString() })
-                .eq('driver_id', driverId)
+                .eq('driver_id', tableDriverId)
                 .eq('product_id', productId)
                 .select()
                 .single();
@@ -151,9 +194,10 @@ export class DriverApiService extends BaseApiService {
         if (this.dataSource === 'supabase') {
             const supabase = getSupabaseClient();
             if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const tableDriverId = await this._driverIdForTables(supabase, driverId);
             const { data, error } = await supabase
                 .from('driver_daily_confirmations')
-                .insert({ driver_id: driverId, items: items || [] })
+                .insert({ driver_id: tableDriverId, items: items || [] })
                 .select()
                 .single();
             if (error) return this.createMockError(error.message || 'Failed to save confirmation', error.code || 500);
@@ -195,11 +239,14 @@ export class DriverApiService extends BaseApiService {
         if (this.dataSource === 'supabase') {
             const supabase = getSupabaseClient();
             if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const fromId = await this._driverIdForTables(supabase, fromDriverId);
+            const toIdRaw = typeof toDriverId === 'object' && toDriverId?.id != null ? toDriverId.id : toDriverId;
+            const toId = await this._driverIdForTables(supabase, toIdRaw);
             const { data, error } = await supabase
                 .from('driver_stock_exchanges')
                 .insert({
-                    from_driver_id: fromDriverId,
-                    to_driver_id: toDriverId,
+                    from_driver_id: fromId,
+                    to_driver_id: toId,
                     product_name: productName,
                     product_type: productType,
                     quantity,
@@ -237,10 +284,11 @@ export class DriverApiService extends BaseApiService {
             const startStr = startDate.toISOString().slice(0, 10);
             const endStr = now.toISOString().slice(0, 10);
 
+            const tableDriverId = await this._driverIdForTables(supabase, driverId);
             const { data: rows, error } = await supabase
                 .from('driver_daily_deposits')
                 .select('*')
-                .eq('driver_id', driverId)
+                .eq('driver_id', tableDriverId)
                 .gte('deposit_date', startStr)
                 .lte('deposit_date', endStr)
                 .order('deposit_date', { ascending: false })
@@ -293,7 +341,81 @@ export class DriverApiService extends BaseApiService {
         return await this.post(`${this.endpoint}/${driverId}/transactions`, transactionData);
     }
 
-    // Get available drivers in area
+    // Get drivers who cover this kelurahan (each driver handles up to 4 kelurahan; user chooses one)
+    async getAvailableDriversByKelurahan(kelurahanId) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const kid = Array.isArray(kelurahanId) ? kelurahanId[0] : kelurahanId;
+            const { data: dkRows, error: e1 } = await supabase.from('driver_kelurahan').select('driver_id').eq('kelurahan_id', kid);
+            if (e1) return this.createMockError(e1.message || 'Failed to fetch drivers', e1.code || 500);
+            const driverIds = [...new Set((dkRows || []).map((r) => r.driver_id))];
+            if (driverIds.length === 0) return this.createMockResponse({ drivers: [], kelurahanId: kid, total: 0 });
+            const { data: userRows, error: e2 } = await supabase.from('app_users').select('*').in('id', driverIds).eq('role_type', 'drivers');
+            if (e2) return this.createMockError(e2.message || 'Failed to fetch users', e2.code || 500);
+            const { data: kRows } = await supabase.from('driver_kelurahan').select('driver_id, kelurahan_id').in('driver_id', driverIds);
+            const kelurahanByDriver = (kRows || []).reduce((acc, r) => {
+                if (!acc[r.driver_id]) acc[r.driver_id] = [];
+                acc[r.driver_id].push(r.kelurahan_id);
+                return acc;
+            }, {});
+            const drivers = (userRows || [])
+                .map((u) => this._rowToDriver(u, null, kelurahanByDriver[u.id] || []))
+                .filter((d) => d.isOnline && d.isAvailable);
+            return this.createMockResponse({ drivers, kelurahanId: kid, total: drivers.length });
+        }
+        if (this.useMockApi) {
+            await this.mockDelay();
+            const ids = Array.isArray(kelurahanId) ? kelurahanId : [kelurahanId];
+            const drivers = this.mockDrivers.filter((d) => {
+                if (!d.isOnline || !d.isAvailable) return false;
+                const kIds = d.kelurahanIds || [];
+                return ids.some((id) => kIds.includes(id));
+            });
+            return this.createMockResponse({
+                drivers,
+                kelurahanId: ids[0],
+                total: drivers.length
+            });
+        }
+        return await this.get(`${this.endpoint}/available-by-kelurahan`, { kelurahanId });
+    }
+
+    // Get kelurahan list for a driver (id = app_users.id)
+    async getDriverKelurahan(driverId) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const userRow = await this._resolveDriverRow(supabase, driverId);
+            if (!userRow) return this.createMockError('Driver not found', 404);
+            const { data: relRows, error: e1 } = await supabase
+                .from('driver_kelurahan')
+                .select('kelurahan_id')
+                .eq('driver_id', userRow.id);
+            if (e1) return this.createMockError(e1.message || 'Failed to fetch driver kelurahan', e1.code || 500);
+            const kelIds = [...new Set((relRows || []).map((r) => r.kelurahan_id))];
+            if (kelIds.length === 0) return this.createMockResponse({ kelurahan: [] });
+            const { data: rows, error: e2 } = await supabase
+                .from('kelurahan')
+                .select('id, name, city, province')
+                .in('id', kelIds);
+            if (e2) return this.createMockError(e2.message || 'Failed to fetch kelurahan', e2.code || 500);
+            const list = (rows || []).map((k) => ({
+                id: k.id,
+                name: k.name,
+                city: k.city,
+                province: k.province
+            }));
+            return this.createMockResponse({ kelurahan: list });
+        }
+        if (this.useMockApi) {
+            await this.mockDelay();
+            return this.createMockResponse({ kelurahan: [] });
+        }
+        return await this.get(`${this.endpoint}/${driverId}/kelurahan`);
+    }
+
+    // Get available drivers in area (legacy GPS-based; prefer getAvailableDriversByKelurahan for user pickup)
     async getAvailableDrivers(location, radius = 10) {
         if (this.useMockApi) {
             await this.mockDelay();
@@ -381,26 +503,34 @@ export class DriverApiService extends BaseApiService {
         return R * c;
     }
 
-    // Get nearby drivers for stock exchange
+    // Get nearby drivers for stock exchange (other drivers; filter by role_type = drivers)
     async getNearbyDrivers(driverId, radius = 15) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const userRow = await this._resolveDriverRow(supabase, driverId);
+            if (!userRow) return this.createMockError('Driver not found', 404);
+            const excludeId = userRow.id;
+            const { data: userRows, error } = await supabase
+                .from('app_users')
+                .select('*')
+                .eq('role_type', 'drivers')
+                .neq('id', excludeId);
+            if (error) return this.createMockError(error.message || 'Failed to fetch drivers', error.code || 500);
+            const nearbyDrivers = (userRows || []).map((u) => {
+                const d = this._rowToDriver(u, null, []);
+                return { id: d.id, name: d.name, avatar: d.avatar, rating: d.rating, phone: d.phone };
+            });
+            return this.createMockResponse({ nearbyDrivers, searchRadius: radius, total: nearbyDrivers.length });
+        }
         if (this.useMockApi) {
             await this.mockDelay();
-
-            const currentDriver = this.mockDrivers.find((d) => d.id === driverId);
-            if (!currentDriver) {
-                return this.createMockError('Driver not found', 404);
-            }
-
-            // Mock additional drivers for exchange from central data
-            const mockNearbyDrivers = JSON.parse(JSON.stringify(driverNearbyDriversData));
-
             return this.createMockResponse({
-                nearbyDrivers: mockNearbyDrivers,
+                nearbyDrivers: [],
                 searchRadius: radius,
-                total: mockNearbyDrivers.length
+                total: 0
             });
         }
-
         return await this.get(`${this.endpoint}/${driverId}/nearby`, { radius });
     }
 
