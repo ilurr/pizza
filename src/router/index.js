@@ -1,4 +1,5 @@
 import AppLayout from '@/layout/AppLayout.vue';
+import { ROLES } from '@/constants/roles.js';
 import { useUserStore } from '@/stores/userStore';
 import { isAuthenticated } from '@/utils/auth';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -26,6 +27,26 @@ const router = createRouter({
                     component: () => import('@/views/Dashboard.vue')
                 },
                 {
+                    path: '/dashboard/orders',
+                    name: 'dashboardOrders',
+                    component: () => import('@/views/pages/admin/AdminOrders.vue')
+                },
+                {
+                    path: '/dashboard/drivers',
+                    name: 'dashboardDrivers',
+                    component: () => import('@/views/pages/admin/AdminDrivers.vue')
+                },
+                {
+                    path: '/dashboard/analytics',
+                    name: 'dashboardAnalytics',
+                    component: () => import('@/views/pages/admin/AdminAnalytics.vue')
+                },
+                {
+                    path: '/dashboard/products',
+                    name: 'dashboardProducts',
+                    component: () => import('@/views/pages/admin/AdminProducts.vue')
+                },
+                {
                     path: '/dashboard/notifications',
                     name: 'dashboardNotifications',
                     component: () => import('@/views/pages/NotificationsNew.vue')
@@ -40,7 +61,7 @@ const router = createRouter({
         {
             path: '/driver',
             component: AppLayout,
-            meta: { requiresAuth: true, roles: ['drivers', 'superadmin'] },
+            meta: { requiresAuth: true, roles: [ROLES.DRIVER, ROLES.SUPERADMIN] },
             children: [
                 {
                     path: '/driver',

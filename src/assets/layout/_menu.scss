@@ -2,7 +2,7 @@
 
 .layout-sidebar {
     position: fixed;
-    width: 20rem;
+    width: 17rem;
     height: calc(100vh - 8rem);
     z-index: 45;
     overflow-y: auto;
@@ -136,6 +136,13 @@
                 }
             }
         }
+    }
+}
+
+.layout-root-menuitem {
+    margin-bottom: 2rem;
+    &:last-child {
+        margin-bottom: 0;
     }
 }
 

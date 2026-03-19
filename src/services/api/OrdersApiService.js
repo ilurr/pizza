@@ -139,6 +139,34 @@ export class OrdersApiService extends BaseApiService {
         return await this.get(`${this.endpoint}/user/${userId}`, filters);
     }
 
+    /**
+     * Admin/Mitra: fetch orders across all users.
+     * Supported filters: { status, driverId, dateFrom, dateTo, limit }
+     */
+    async getAllOrders(filters = {}) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
+
+            let query = supabase.from('orders').select('*').order('order_date', { ascending: false });
+            if (filters.status) query = query.eq('status', filters.status);
+            if (filters.driverId) query = query.eq('driver_id', String(filters.driverId));
+            if (filters.dateFrom) query = query.gte('order_date', filters.dateFrom);
+            if (filters.dateTo) query = query.lte('order_date', filters.dateTo);
+            if (filters.limit) query = query.limit(filters.limit);
+
+            const { data: rows, error } = await query;
+            if (error) {
+                return this.createMockError(error.message || 'Failed to fetch orders', error.code || 500);
+            }
+            const orders = (rows || []).map(rowToOrder);
+            return this.createMockResponse({ orders, total: orders.length });
+        }
+        return await this.get(this.endpoint, filters);
+    }
+
     async getOrder(orderId) {
         if (this.dataSource === 'supabase') {
             const supabase = getSupabaseClient();

@@ -3,6 +3,7 @@ import brandConfig from '@/brand/brandConfig.ts';
 import UserAvatar from '@/components/shared/UserAvatar.vue';
 import { useAuth } from '@/composables/useAuth';
 import { useRoles } from '@/composables/useRoles';
+import { ROLES } from '@/constants/roles.js';
 import { useLayout } from '@/layout/composables/layout';
 import NotificationService from '@/service/NotificationService.js';
 import { useUserStore } from '@/stores/userStore';
@@ -53,11 +54,11 @@ const isDashboardRoute = computed(() => {
     return route.path.startsWith('/dashboard');
 });
 
-/** Logo link by role: user -> /, driver -> /driver, admin/mitra -> /dashboard */
+/** Logo link by role: user -> /, driver -> /driver, superadmin/mitra -> /dashboard */
 const logoLink = computed(() => {
     const role = userStore.role;
-    if (role === 'drivers') return '/driver';
-    if (role === 'admin' || role === 'mitra') return '/dashboard';
+    if (role === ROLES.DRIVER) return '/driver';
+    if (role === ROLES.SUPERADMIN || role === ROLES.MITRA) return '/dashboard';
     return '/';
 });
 
@@ -191,7 +192,7 @@ onUnmounted(() => {
                     <div class="layout-topbar-menu-content">
                         <!-- Navigation Shortcuts -->
                         <router-link to="/"
-                            v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === 'admin' || userStore.role === 'mitra')">
+                            v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === ROLES.SUPERADMIN || userStore.role === ROLES.MITRA)">
                             <button type="button" class="layout-topbar-action">
                                 <i class="pi pi-home"></i>
                                 <span>Home</span>
@@ -200,7 +201,7 @@ onUnmounted(() => {
 
                         <!-- Dashboard (admin/mitra) -->
                         <router-link to="/dashboard"
-                            v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === 'admin' || userStore.role === 'mitra')">
+                            v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === ROLES.SUPERADMIN || userStore.role === ROLES.MITRA)">
                             <button type="button" class="layout-topbar-action">
                                 <i class="pi pi-th-large"></i>
                                 <span>Dashboard</span>
@@ -209,7 +210,7 @@ onUnmounted(() => {
 
                         <!-- Driver Dashboard -->
                         <router-link to="/driver"
-                            v-if="userStore.role === 'drivers' && !route.path.startsWith('/driver')">
+                            v-if="userStore.role === ROLES.DRIVER && !route.path.startsWith('/driver')">
                             <button type="button" class="layout-topbar-action">
                                 <i class="pi pi-home"></i>
                                 <span>Dashboard</span>

@@ -1,5 +1,6 @@
 <script setup>
 import CartModal from '@/components/CartModal.vue';
+import { FALLBACK_PRODUCT_IMAGE_URL } from '@/constants/media.js';
 import FloatingCart from '@/components/FloatingCart.vue';
 import { ProductService } from '@/service/ProductService.js';
 import { useToast } from 'primevue/usetoast';
@@ -17,6 +18,12 @@ const isLoading = ref(true);
 const loadError = ref(null);
 
 const MENU_LOAD_TIMEOUT_MS = 12_000;
+const fallbackImageUrl = FALLBACK_PRODUCT_IMAGE_URL;
+
+const handleProductImageError = (event) => {
+    const img = event.target;
+    if (img && img.src !== fallbackImageUrl) img.src = fallbackImageUrl;
+};
 
 const loadMenu = async () => {
     isLoading.value = true;
@@ -156,9 +163,12 @@ onMounted(() => loadMenu());
                         class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700/80 transition-colors">
                         <div
                             class="shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-gray-100 dark:bg-neutral-700 flex items-center justify-center">
-                            <img v-if="product.image || product.imageUrl" :src="product.imageUrl || product.image"
-                                :alt="product.name" class="w-full h-full object-cover" />
-                            <i v-else class="pi pi-image text-2xl text-gray-400 dark:text-gray-500"></i>
+                            <img
+                                :src="product.imageUrl || product.image || fallbackImageUrl"
+                                :alt="product.name"
+                                @error="handleProductImageError"
+                                class="w-full h-full object-cover"
+                            />
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-gray-900 dark:text-white truncate">{{ product.name }}</div>

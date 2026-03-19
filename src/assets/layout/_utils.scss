@@ -11,6 +11,11 @@
     margin-bottom: 2rem;
     border-radius: var(--content-border-radius);
 
+    @media (max-width: 768px) {
+        padding: 1rem;
+        border-radius: 0;
+    }
+
     &:last-child {
         margin-bottom: 0;
     }

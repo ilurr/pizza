@@ -1,4 +1,5 @@
 <script setup>
+import { ROLES } from '@/constants/roles.js';
 import { useUserStore } from '@/stores/userStore.ts';
 import { computed, ref } from 'vue';
 
@@ -10,15 +11,17 @@ const userStore = useUserStore();
 const adminModel = ref([
     {
         label: 'Home',
-        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/dashboard' }]
+        items: [
+            { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/dashboard' },
+            { label: 'Analytics', icon: 'pi pi-fw pi-chart-bar', to: '/dashboard/analytics' }
+        ]
     },
     {
         label: 'Management',
         items: [
             { label: 'Orders', icon: 'pi pi-fw pi-shopping-cart', to: '/dashboard/orders' },
             { label: 'Drivers', icon: 'pi pi-fw pi-users', to: '/dashboard/drivers' },
-            { label: 'Menu Items', icon: 'pi pi-fw pi-list', to: '/dashboard/menu' },
-            { label: 'Analytics', icon: 'pi pi-fw pi-chart-bar', to: '/dashboard/analytics' }
+            { label: 'Product', icon: 'pi pi-fw pi-list', to: '/dashboard/products' }
         ]
     }
 ]);
@@ -41,7 +44,7 @@ const driverModel = ref([
 const model = computed(() => {
     const userRole = userStore.role;
 
-    if (userRole === 'drivers') {
+    if (userRole === ROLES.DRIVER) {
         return driverModel.value;
     } else {
         return adminModel.value;

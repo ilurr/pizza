@@ -1,4 +1,5 @@
 <script setup>
+import { FALLBACK_PRODUCT_IMAGE_URL } from '@/constants/media.js';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -45,6 +46,11 @@ const itemKey = (item) => (item.type ? `${item.type}-${item.id}` : item.id);
 
 const onUpdateQty = (item, delta) => emit('update-quantity', item, delta);
 const onRemove = (item) => emit('remove-item', item);
+const fallbackImageUrl = FALLBACK_PRODUCT_IMAGE_URL;
+const handleItemImageError = (event) => {
+    const img = event.target;
+    if (img && img.src !== fallbackImageUrl) img.src = fallbackImageUrl;
+};
 </script>
 
 <template>
@@ -63,9 +69,13 @@ const onRemove = (item) => emit('remove-item', item);
                 class="flex items-center space-x-4 py-2 border-b border-surface-200 dark:border-surface-700 last:border-b-0">
                 <div
                     class="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    <i class="pi pi-image text-2xl text-gray-400" v-if="!item.image"></i>
-                    <img v-else :src="item.image" :alt="item.name" loading="lazy"
-                        class="w-full h-full object-cover rounded-lg" />
+                    <img
+                        :src="item.image || fallbackImageUrl"
+                        :alt="item.name"
+                        loading="lazy"
+                        @error="handleItemImageError"
+                        class="w-full h-full object-cover rounded-lg"
+                    />
                 </div>
                 <div class="flex-1 min-w-0">
                     <h4 class="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-0 text-base">

@@ -1,9 +1,10 @@
 <script setup>
+import { FALLBACK_PRODUCT_IMAGE_URL } from '@/constants/media.js';
 import Skeleton from 'primevue/skeleton';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
-    src: { type: String, required: true },
+    src: { type: String, default: '' },
     alt: { type: String, default: '' },
 
     width: { type: String, default: '100%' }, // Inline width (optional)
@@ -12,7 +13,7 @@ const props = defineProps({
     wrapperClass: { type: String, default: '' }, // Extra Tailwind classes for wrapper
     imgClass: { type: String, default: '' }, // Extra classes for <img>
     skeletonClass: { type: String, default: '' }, // Custom skeleton styling
-    fallback: { type: String, default: '' } // Fallback image on error
+    fallback: { type: String, default: FALLBACK_PRODUCT_IMAGE_URL } // Fallback image on error
 });
 
 const loaded = ref(false);

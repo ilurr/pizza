@@ -1,29 +1,30 @@
 import { computed } from 'vue';
 import { useUserStore } from '@/stores/userStore';
+import { ADMIN_PANEL_ROLES, DASHBOARD_ROLES, ROLES } from '@/constants/roles.js';
 
 export function useRoles() {
     const userStore = useUserStore();
 
     // Role checks
-    const isDriver = computed(() => userStore.role === 'drivers');
-    const isSuperAdmin = computed(() => userStore.role === 'superadmin');
-    const isMitra = computed(() => userStore.role === 'mitra');
+    const isDriver = computed(() => userStore.role === ROLES.DRIVER);
+    const isSuperAdmin = computed(() => userStore.role === ROLES.SUPERADMIN);
+    const isMitra = computed(() => userStore.role === ROLES.MITRA);
     
     // Permission checks
     const canAccessDashboard = computed(() => 
-        ['superadmin', 'drivers', 'mitra'].includes(userStore.role)
+        DASHBOARD_ROLES.includes(userStore.role)
     );
     
     const canManageDrivers = computed(() => 
-        ['superadmin', 'mitra'].includes(userStore.role)
+        ADMIN_PANEL_ROLES.includes(userStore.role)
     );
     
     const canViewReports = computed(() => 
-        ['superadmin', 'mitra'].includes(userStore.role)
+        ADMIN_PANEL_ROLES.includes(userStore.role)
     );
     
     const canManageMenu = computed(() => 
-        ['superadmin', 'mitra'].includes(userStore.role)
+        ADMIN_PANEL_ROLES.includes(userStore.role)
     );
 
     // Helper methods

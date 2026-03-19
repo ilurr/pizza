@@ -1,6 +1,7 @@
 <script setup>
 import bg from '@/assets/images/BgMain.svg';
 import logo from '@/assets/images/LogoCircleRedSVG.svg';
+import { ROLES } from '@/constants/roles.js';
 import { useUserStore } from '@/stores/userStore.ts';
 import { login } from '@/utils/auth';
 import { ref } from 'vue';
@@ -64,10 +65,10 @@ const handleLogin = async () => {
         // Determine default redirect based on user role
         const userRole = userStore.role;
 
-        if (userRole === 'superadmin' || userRole === 'mitra') {
+        if (userRole === ROLES.SUPERADMIN || userRole === ROLES.MITRA) {
             // Admin users go to dashboard
             router.push('/dashboard');
-        } else if (userRole === 'drivers') {
+        } else if (userRole === ROLES.DRIVER) {
             // Driver users go to driver dashboard
             router.push('/driver');
         } else {

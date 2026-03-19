@@ -1,4 +1,5 @@
 import { BaseApiService } from './ApiClient.js';
+import { ROLES } from '@/constants/roles.js';
 import { getSupabaseClient } from '@/services/supabase/client.js';
 
 export class DriverApiService extends BaseApiService {
@@ -22,7 +23,7 @@ export class DriverApiService extends BaseApiService {
             .from('app_users')
             .select('*')
             .eq('id', Number(driverId))
-            .eq('role_type', 'drivers')
+            .eq('role_type', ROLES.DRIVER)
             .maybeSingle();
         if (error || !row) return null;
         return row;
@@ -351,7 +352,7 @@ export class DriverApiService extends BaseApiService {
             if (e1) return this.createMockError(e1.message || 'Failed to fetch drivers', e1.code || 500);
             const driverIds = [...new Set((dkRows || []).map((r) => r.driver_id))];
             if (driverIds.length === 0) return this.createMockResponse({ drivers: [], kelurahanId: kid, total: 0 });
-            const { data: userRows, error: e2 } = await supabase.from('app_users').select('*').in('id', driverIds).eq('role_type', 'drivers');
+            const { data: userRows, error: e2 } = await supabase.from('app_users').select('*').in('id', driverIds).eq('role_type', ROLES.DRIVER);
             if (e2) return this.createMockError(e2.message || 'Failed to fetch users', e2.code || 500);
             const { data: kRows } = await supabase.from('driver_kelurahan').select('driver_id, kelurahan_id').in('driver_id', driverIds);
             const kelurahanByDriver = (kRows || []).reduce((acc, r) => {
@@ -514,7 +515,7 @@ export class DriverApiService extends BaseApiService {
             const { data: userRows, error } = await supabase
                 .from('app_users')
                 .select('*')
-                .eq('role_type', 'drivers')
+                .eq('role_type', ROLES.DRIVER)
                 .neq('id', excludeId);
             if (error) return this.createMockError(error.message || 'Failed to fetch drivers', error.code || 500);
             const nearbyDrivers = (userRows || []).map((u) => {
@@ -532,6 +533,37 @@ export class DriverApiService extends BaseApiService {
             });
         }
         return await this.get(`${this.endpoint}/${driverId}/nearby`, { radius });
+    }
+
+    /**
+     * Admin/Mitra: list all drivers (from app_users.role_type='drivers').
+     */
+    async listDrivers() {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const { data: userRows, error } = await supabase.from('app_users').select('*').eq('role_type', ROLES.DRIVER);
+            if (error) return this.createMockError(error.message || 'Failed to fetch drivers', error.code || 500);
+            const userIds = (userRows || []).map((u) => u.id);
+            let kelurahanByDriver = {};
+            if (userIds.length) {
+                const { data: relRows } = await supabase.from('driver_kelurahan').select('driver_id, kelurahan_id').in('driver_id', userIds);
+                kelurahanByDriver = (relRows || []).reduce((acc, r) => {
+                    const key = String(r.driver_id);
+                    if (!acc[key]) acc[key] = [];
+                    if (!acc[key].includes(r.kelurahan_id)) acc[key].push(r.kelurahan_id);
+                    return acc;
+                }, {});
+            }
+
+            const drivers = (userRows || []).map((u) => this._rowToDriver(u, null, kelurahanByDriver[String(u.id)] || []));
+            return this.createMockResponse({ drivers, total: drivers.length });
+        }
+        if (this.useMockApi) {
+            await this.mockDelay();
+            return this.createMockResponse({ drivers: [], total: 0 });
+        }
+        return await this.get(`${this.endpoint}`, { role: ROLES.DRIVER });
     }
 
     // Create stock exchange request

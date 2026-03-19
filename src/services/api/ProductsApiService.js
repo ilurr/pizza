@@ -240,6 +240,65 @@ export class ProductsApiService extends BaseApiService {
         return await this.get(`${this.endpoint}/search`, { q: query, ...filters });
     }
 
+    // Price history: get history rows for a product
+    async getProductPriceHistory(productType, productId, limit = 50) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+
+            const normalizedType = productType === 'pizza' ? 'pizza' : 'beverage';
+            const { data: rows, error } = await supabase
+                .from('product_price_history')
+                .select('*')
+                .eq('product_type', normalizedType)
+                .eq('product_id', String(productId))
+                .order('effective_from', { ascending: false })
+                .limit(limit);
+
+            if (error) {
+                return this.createMockError(error.message || 'Failed to fetch product price history', error.code || 500);
+            }
+
+            return this.createMockResponse({
+                history: rows || [],
+                productType: normalizedType,
+                productId: String(productId),
+                total: (rows || []).length
+            });
+        }
+        return await this.get(`${this.endpoint}/${productType}/${productId}/price-history`, { limit });
+    }
+
+    // Price history: record one change row
+    async recordPriceChange(payload) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+
+            const row = {
+                product_type: payload.productType === 'pizza' ? 'pizza' : 'beverage',
+                product_id: String(payload.productId),
+                old_price: Number(payload.oldPrice ?? 0),
+                new_price: Number(payload.newPrice ?? 0),
+                change_reason: payload.changeReason || null,
+                effective_from: payload.effectiveFrom || new Date().toISOString(),
+                changed_by: payload.changedBy != null ? String(payload.changedBy) : null
+            };
+
+            const { data, error } = await supabase
+                .from('product_price_history')
+                .insert(row)
+                .select('*')
+                .single();
+
+            if (error) {
+                return this.createMockError(error.message || 'Failed to record price change', error.code || 500);
+            }
+            return this.createMockResponse({ history: data, message: 'Price change recorded successfully' });
+        }
+        return await this.post(`${this.endpoint}/price-history`, payload);
+    }
+
     // Check product availability
     async checkAvailability(productId, quantity = 1) {
         if (this.useMockApi) {
