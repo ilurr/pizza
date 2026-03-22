@@ -100,7 +100,7 @@ export class ProductsApiService extends BaseApiService {
         if (this.dataSource === 'supabase') {
             return await this.getPizzasFromSupabase(filters);
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/pizzas`, filters);
     }
@@ -110,7 +110,7 @@ export class ProductsApiService extends BaseApiService {
         if (this.dataSource === 'supabase') {
             return await this.getBeveragesFromSupabase(filters);
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/beverages`, filters);
     }
@@ -131,7 +131,7 @@ export class ProductsApiService extends BaseApiService {
         }
         if (this.useMockApi) {
             const [pizzasResponse, beveragesResponse] = await Promise.all([this.getPizzas(filters), this.getBeverages(filters)]);
-            
+
             if (pizzasResponse.success && beveragesResponse.success) {
                 return this.createMockResponse({
                     pizzas: pizzasResponse.data.pizzas,
@@ -140,10 +140,10 @@ export class ProductsApiService extends BaseApiService {
                     total: pizzasResponse.data.total + beveragesResponse.data.total
                 });
             }
-            
+
             return this.createMockError('Failed to load menu');
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/menu`, filters);
     }
@@ -161,7 +161,7 @@ export class ProductsApiService extends BaseApiService {
             if (beverage) return this.createMockResponse({ product: beverage, type: 'beverage' });
             return this.createMockError('Product not found', 404);
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/${productId}`);
     }
@@ -183,7 +183,7 @@ export class ProductsApiService extends BaseApiService {
                 }
             });
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/categories`);
     }
@@ -203,7 +203,7 @@ export class ProductsApiService extends BaseApiService {
                 total: limit
             });
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/popular`, { limit });
     }
@@ -235,7 +235,7 @@ export class ProductsApiService extends BaseApiService {
                 filters
             });
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/search`, { q: query, ...filters });
     }
@@ -247,13 +247,7 @@ export class ProductsApiService extends BaseApiService {
             if (!supabase) return this.createMockError('Supabase not configured', 500);
 
             const normalizedType = productType === 'pizza' ? 'pizza' : 'beverage';
-            const { data: rows, error } = await supabase
-                .from('product_price_history')
-                .select('*')
-                .eq('product_type', normalizedType)
-                .eq('product_id', String(productId))
-                .order('effective_from', { ascending: false })
-                .limit(limit);
+            const { data: rows, error } = await supabase.from('product_price_history').select('*').eq('product_type', normalizedType).eq('product_id', String(productId)).order('effective_from', { ascending: false }).limit(limit);
 
             if (error) {
                 return this.createMockError(error.message || 'Failed to fetch product price history', error.code || 500);
@@ -285,11 +279,7 @@ export class ProductsApiService extends BaseApiService {
                 changed_by: payload.changedBy != null ? String(payload.changedBy) : null
             };
 
-            const { data, error } = await supabase
-                .from('product_price_history')
-                .insert(row)
-                .select('*')
-                .single();
+            const { data, error } = await supabase.from('product_price_history').insert(row).select('*').single();
 
             if (error) {
                 return this.createMockError(error.message || 'Failed to record price change', error.code || 500);
@@ -303,14 +293,14 @@ export class ProductsApiService extends BaseApiService {
     async checkAvailability(productId, quantity = 1) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const product = await this.getProduct(productId);
             if (!product.success) {
                 return product;
             }
-            
+
             const isAvailable = product.data.product.available;
-            
+
             return this.createMockResponse({
                 available: isAvailable,
                 maxQuantity: isAvailable ? 10 : 0, // Mock stock level
@@ -318,7 +308,7 @@ export class ProductsApiService extends BaseApiService {
                 requestedQuantity: quantity
             });
         }
-        
+
         // Real API call
         return await this.get(`${this.endpoint}/${productId}/availability`, { quantity });
     }
@@ -327,9 +317,9 @@ export class ProductsApiService extends BaseApiService {
     async checkMultipleAvailability(items) {
         if (this.useMockApi) {
             await this.mockDelay();
-            
+
             const results = [];
-            
+
             for (const item of items) {
                 const availabilityCheck = await this.checkAvailability(item.productId, item.quantity);
                 results.push({
@@ -339,16 +329,16 @@ export class ProductsApiService extends BaseApiService {
                     maxQuantity: availabilityCheck.data.maxQuantity
                 });
             }
-            
+
             const allAvailable = results.every((result) => result.available);
-            
+
             return this.createMockResponse({
                 allAvailable: allAvailable,
                 items: results,
                 unavailableCount: results.filter((r) => !r.available).length
             });
         }
-        
+
         // Real API call
         return await this.post(`${this.endpoint}/availability/batch`, { items });
     }

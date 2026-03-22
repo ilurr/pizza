@@ -143,7 +143,6 @@ export class LocationApiService extends BaseApiService {
                 estimatedDeliveryTime: 35
             }
         ];
-
     }
 
     // Resolve user location to a kelurahan (nearest by center distance). Uses Supabase kelurahan table.

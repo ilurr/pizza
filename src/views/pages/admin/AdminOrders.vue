@@ -24,6 +24,8 @@ const search = ref('');
 
 const isLoading = ref(false);
 const orders = ref<any[]>([]);
+const orderDialogVisible = ref(false);
+const selectedOrder = ref<any | null>(null);
 
 const formatCurrency = (amount: number) => {
     const formatted = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount || 0);
@@ -37,6 +39,12 @@ const formatDateTime = (iso: string) => {
 
 const dateToIsoStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).toISOString();
 const dateToIsoEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString();
+
+const formatDeliveryAddress = (addr: any) => {
+    if (!addr) return '—';
+    if (typeof addr === 'string') return addr;
+    return addr.address || addr.fullAddress || addr.location || JSON.stringify(addr);
+};
 
 const filteredOrders = computed(() => {
     const q = search.value.trim().toLowerCase();
@@ -100,6 +108,11 @@ const statusSeverity = (s: string) => {
     return m[s] || 'secondary';
 };
 
+const openOrderDialog = (order: any) => {
+    selectedOrder.value = order;
+    orderDialogVisible.value = true;
+};
+
 watch([selectedStatus, selectedDriverId, startDate, endDate], () => loadOrders());
 
 onMounted(async () => {
@@ -119,19 +132,19 @@ onMounted(async () => {
         <div class="grid grid-cols-12 gap-4 mb-4">
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Status</label>
-                <Dropdown v-model="selectedStatus" :options="statusOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedStatus" :options="statusOptions" optionLabel="label" optionValue="value" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Driver</label>
-                <Dropdown v-model="selectedDriverId" :options="driverOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedDriverId" :options="driverOptions" optionLabel="label" optionValue="value" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Tanggal Mulai</label>
-                <Calendar v-model="startDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy" class="w-full" />
+                <DatePicker v-model="startDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Tanggal Akhir</label>
-                <Calendar v-model="endDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy" class="w-full" />
+                <DatePicker v-model="endDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-6">
                 <label class="block text-sm font-medium mb-2">Cari</label>
@@ -156,6 +169,12 @@ onMounted(async () => {
             <template #empty>
                 <div class="py-6 text-center text-surface-500">Tidak ada order untuk filter ini.</div>
             </template>
+
+            <Column header="#" style="width: 60px">
+                <template #body="{ index }">
+                    {{ index + 1 }}
+                </template>
+            </Column>
 
             <Column header="Order" style="min-width: 180px">
                 <template #body="{ data }">
@@ -202,6 +221,115 @@ onMounted(async () => {
                     <Tag :value="data.status" :severity="statusSeverity(data.status)" />
                 </template>
             </Column>
+
+            <Column header="Action" style="width: 90px">
+                <template #body="{ data }">
+                    <Button
+                        icon="pi pi-eye"
+                        text
+                        rounded
+                        severity="secondary"
+                        @click="openOrderDialog(data)"
+                    />
+                </template>
+            </Column>
         </DataTable>
+
+        <Dialog
+            v-model:visible="orderDialogVisible"
+            modal
+            :header="selectedOrder ? `Order Detail - ${selectedOrder.orderNumber || selectedOrder.id}` : 'Order Detail'"
+            class="w-full md:w-[48rem]"
+        >
+            <div v-if="selectedOrder" class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                    <div>
+                        <div class="text-lg font-semibold">
+                            {{ selectedOrder.orderNumber || selectedOrder.id }}
+                        </div>
+                        <div class="text-sm text-surface-500">{{ formatDateTime(selectedOrder.orderDate) }}</div>
+                    </div>
+                    <div>
+                        <Tag :value="selectedOrder.status" :severity="statusSeverity(selectedOrder.status)" />
+                        <div class="text-xs text-surface-500 mt-2">Pay: {{ selectedOrder.paymentStatus || 'pending' }}</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 gap-3">
+                    <div class="col-span-12 md:col-span-6">
+                        <div class="text-sm font-medium mb-1">Customer</div>
+                        <div class="text-sm">{{ selectedOrder.customerName || '—' }}</div>
+                        <div class="text-xs text-surface-500">
+                            {{ selectedOrder.customerPhone || selectedOrder.customerEmail || '—' }}
+                        </div>
+                    </div>
+                    <div class="col-span-12 md:col-span-6">
+                        <div class="text-sm font-medium mb-1">Driver</div>
+                        <div class="text-sm">{{ selectedOrder.driverInfo?.name || '—' }}</div>
+                        <div class="text-xs text-surface-500">{{ selectedOrder.driverInfo?.phone || '—' }}</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="text-sm font-medium mb-2">Items</div>
+                    <div v-if="(selectedOrder.items || []).length === 0" class="text-sm text-surface-500">—</div>
+                    <div v-else class="space-y-2">
+                        <div
+                            v-for="(it, idx) in selectedOrder.items"
+                            :key="it.id || (it.name + '-' + idx)"
+                            class="flex items-start justify-between gap-3"
+                        >
+                            <div class="min-w-0">
+                                <div class="text-sm font-medium truncate">{{ it.name || 'Item' }}</div>
+                                <div class="text-xs text-surface-500">
+                                    {{ it.quantity || 0 }} x {{ it.price != null ? formatCurrency(Number(it.price)) : '—' }}
+                                </div>
+                            </div>
+                            <div class="text-sm font-semibold">
+                                {{ it.price != null ? formatCurrency(Number(it.price) * Number(it.quantity || 0)) : '—' }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 gap-3">
+                    <div class="col-span-12 md:col-span-7">
+                        <div class="text-sm font-medium mb-1">Delivery</div>
+                        <div class="text-sm">{{ formatDeliveryAddress(selectedOrder.deliveryAddress) }}</div>
+                        <div class="text-xs text-surface-500 mt-1" v-if="selectedOrder.estimatedDelivery">
+                            Est.: {{ formatDateTime(selectedOrder.estimatedDelivery) }}
+                        </div>
+                        <div class="text-xs text-surface-500 mt-1" v-if="selectedOrder.notes">
+                            Notes: {{ selectedOrder.notes }}
+                        </div>
+                    </div>
+                    <div class="col-span-12 md:col-span-5">
+                        <div class="text-sm font-medium mb-1">Total</div>
+                        <div class="flex justify-between text-sm text-surface-700">
+                            <span>Subtotal</span>
+                            <span>{{ formatCurrency(Number(selectedOrder.subtotal || 0)) }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-surface-700">
+                            <span>Delivery Fee</span>
+                            <span>{{ formatCurrency(Number(selectedOrder.deliveryFee || 0)) }}</span>
+                        </div>
+                        <div
+                            class="flex justify-between text-sm text-surface-700"
+                            v-if="Number(selectedOrder.discount || 0) !== 0"
+                        >
+                            <span>Discount</span>
+                            <span>-{{ formatCurrency(Number(selectedOrder.discount || 0)) }}</span>
+                        </div>
+                        <div class="flex justify-between text-base font-semibold mt-2">
+                            <span>Grand Total</span>
+                            <span>{{ formatCurrency(Number(selectedOrder.total || 0)) }}</span>
+                        </div>
+                        <div class="text-xs text-surface-500 mt-1">
+                            Payment Method: {{ selectedOrder.paymentMethod || '—' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
     </div>
 </template>

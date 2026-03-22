@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import api from '@/services/api/index.js';
 import { FALLBACK_PRODUCT_IMAGE_URL } from '@/constants/media.js';
-import { getSupabaseClient } from '@/services/supabase/client.js';
 import { ROLES } from '@/constants/roles.js';
+import api from '@/services/api/index.js';
+import { getSupabaseClient } from '@/services/supabase/client.js';
 import { useUserStore } from '@/stores/userStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
@@ -309,10 +309,8 @@ onMounted(() => {
     <div class="card">
         <div class="flex flex-col gap-2 mb-4">
             <div class="text-2xl font-semibold">Master Product</div>
-            <div class="text-sm text-surface-500">Kelola daftar produk (pizza & beverage), kategori, harga, dan ketersediaan.</div>
-        </div>
-        <div v-if="canManageProducts" class="flex justify-end mb-4">
-            <Button label="Add Product" icon="pi pi-plus" @click="openAddDialog" />
+            <div class="text-sm text-surface-500">Kelola daftar produk (pizza & beverage), kategori, harga, dan
+                ketersediaan.</div>
         </div>
 
         <!-- Summary cards -->
@@ -351,45 +349,50 @@ onMounted(() => {
             </div>
             <div class="col-span-12 md:col-span-2">
                 <label class="block text-sm font-medium mb-2">Tipe</label>
-                <Dropdown v-model="selectedType" :options="typeOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedType" :options="typeOptions" optionLabel="label" optionValue="value"
+                    class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Kategori</label>
-                <Dropdown v-model="selectedCategory" :options="categoryOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedCategory" :options="categoryOptions" optionLabel="label" optionValue="value"
+                    class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Availability</label>
-                <Dropdown v-model="selectedAvailability" :options="availabilityOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedAvailability" :options="availabilityOptions" optionLabel="label"
+                    optionValue="value" class="w-full" />
             </div>
-            <div class="col-span-12 flex justify-end gap-2">
-                <Button label="Reset" icon="pi pi-refresh" outlined @click="resetFilters" />
-                <Button label="Refresh" icon="pi pi-sync" @click="loadProducts" :loading="isLoading" />
+            <div class="col-span-12 flex justify-between gap-2">
+                <div class="flex gap-2">
+                    <Button v-if="canManageProducts" label="Add Product" icon="pi pi-plus" @click="openAddDialog" />
+                </div>
+                <div class="flex gap-2">
+                    <Button label="Reset" icon="pi pi-refresh" outlined @click="resetFilters" />
+                    <Button label="Refresh" icon="pi pi-sync" outlined @click="loadProducts" :loading="isLoading" />
+                </div>
             </div>
         </div>
 
         <!-- Table -->
-        <DataTable
-            :value="filteredRows"
-            :loading="isLoading"
-            paginator
-            :rows="10"
-            :rowsPerPageOptions="[10, 25, 50]"
-            class="p-datatable-sm"
-            responsiveLayout="scroll"
-        >
+        <DataTable :value="filteredRows" :loading="isLoading" paginator :rows="10" :rowsPerPageOptions="[10, 25, 50]"
+            class="p-datatable-sm" responsiveLayout="scroll">
             <template #empty>
                 <div class="py-6 text-center text-surface-500">Tidak ada produk untuk filter ini.</div>
             </template>
 
+            <Column header="#" style="width: 60px">
+                <template #body="{ index }">
+                    {{ index + 1 }}
+                </template>
+            </Column>
+
             <Column header="Product" style="min-width: 260px">
                 <template #body="{ data }">
                     <div class="flex items-start gap-3">
-                        <img
-                            :src="data.image || fallbackImageUrl"
-                            :alt="data.name"
-                            @error="handleProductImageError"
-                            class="w-12 h-12 rounded-lg object-cover border border-surface-200 dark:border-surface-700"
-                        />
+                        <div class="w-14 h-14 flex-shrink-0 relative rounded-lg overflow-hidden">
+                            <img :src="data.image || fallbackImageUrl" :alt="data.name" @error="handleProductImageError"
+                                class="object-cover w-full h-full" />
+                        </div>
                         <div class="flex flex-col">
                             <div class="font-semibold">{{ data.name }}</div>
                             <div class="text-xs text-surface-500 line-clamp-2">{{ data.description || '—' }}</div>
@@ -414,40 +417,41 @@ onMounted(() => {
 
             <Column header="Rating" style="min-width: 100px">
                 <template #body="{ data }">
-                    <span v-if="data.type === 'pizza'">⭐ {{ Number(data.rating || 0).toFixed(1) }}</span>
+                    <span v-if="data.type === 'pizza'"><i class="pi pi-star-fill text-yellow-500 is-filled"></i> {{
+                        Number(data.rating || 0).toFixed(1) }}</span>
                     <span v-else class="text-surface-500">—</span>
                 </template>
             </Column>
 
             <Column header="Status" style="min-width: 120px">
                 <template #body="{ data }">
-                    <Tag :value="data.available ? 'Available' : 'Unavailable'" :severity="data.available ? 'success' : 'danger'" />
+                    <Tag :value="data.available ? 'Available' : 'Unavailable'"
+                        :severity="data.available ? 'success' : 'danger'" />
                 </template>
             </Column>
 
-            <Column v-if="canViewPriceHistory" header="History" style="min-width: 110px">
+            <Column header="Action" style="min-width: 140px">
                 <template #body="{ data }">
-                    <Button icon="pi pi-clock" text rounded severity="secondary" @click="openHistoryDialog(data)" />
-                </template>
-            </Column>
-
-            <Column v-if="canManageProducts" header="Action" style="min-width: 140px">
-                <template #body="{ data }">
-                    <div class="flex gap-2">
-                        <Button icon="pi pi-pencil" text rounded severity="info" @click="openEditDialog(data)" />
-                        <Button icon="pi pi-trash" text rounded severity="danger" @click="removeProduct(data)" />
+                    <div class="flex">
+                        <Button v-if="canViewPriceHistory" icon="pi pi-clock" text rounded severity="secondary"
+                            @click="openHistoryDialog(data)" />
+                        <Button v-if="canManageProducts" icon="pi pi-pencil" text rounded severity="info"
+                            @click="openEditDialog(data)" />
+                        <Button v-if="canManageProducts" icon="pi pi-trash" text rounded severity="danger"
+                            @click="removeProduct(data)" />
                     </div>
                 </template>
             </Column>
         </DataTable>
     </div>
 
-    <Dialog v-model:visible="productDialogVisible" modal :header="editingRow ? 'Edit Product' : 'Add Product'" class="w-full md:w-[34rem]">
+    <Dialog v-model:visible="productDialogVisible" modal :header="editingRow ? 'Edit Product' : 'Add Product'"
+        class="w-full md:w-[34rem]">
         <div class="grid grid-cols-12 gap-3">
             <div class="col-span-12 md:col-span-6">
                 <label class="block text-sm font-medium mb-2">Type</label>
-                <Dropdown v-model="form.type" :options="typeOptions.filter(t => t.value !== 'all')" optionLabel="label" optionValue="value"
-                    :disabled="!!editingRow" class="w-full" />
+                <Select v-model="form.type" :options="typeOptions.filter(t => t.value !== 'all')" optionLabel="label"
+                    optionValue="value" :disabled="!!editingRow" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-6">
                 <label class="block text-sm font-medium mb-2">Price</label>
@@ -477,22 +481,22 @@ onMounted(() => {
             </div>
             <div v-if="editingRow" class="col-span-12">
                 <label class="block text-sm font-medium mb-2">Change Reason (optional)</label>
-                <Textarea v-model="form.changeReason" rows="2" class="w-full" placeholder="Example: inflation adjustment, supplier cost update" />
+                <Textarea v-model="form.changeReason" rows="2" class="w-full"
+                    placeholder="Example: inflation adjustment, supplier cost update" />
             </div>
         </div>
         <template #footer>
             <Button label="Cancel" text @click="productDialogVisible = false" />
-            <Button :label="editingRow ? 'Update' : 'Create'" icon="pi pi-check" :loading="isSubmitting" @click="saveProduct" />
+            <Button :label="editingRow ? 'Update' : 'Create'" icon="pi pi-check" :loading="isSubmitting"
+                @click="saveProduct" />
         </template>
     </Dialog>
 
-    <Dialog
-        v-model:visible="historyDialogVisible"
-        modal
+    <Dialog v-model:visible="historyDialogVisible" modal
         :header="selectedHistoryProduct ? `Price History - ${selectedHistoryProduct.name}` : 'Price History'"
-        class="w-full md:w-[44rem]"
-    >
-        <DataTable :value="priceHistoryRows" :loading="isHistoryLoading" class="p-datatable-sm" responsiveLayout="scroll">
+        class="w-full md:w-[44rem]">
+        <DataTable :value="priceHistoryRows" :loading="isHistoryLoading" class="p-datatable-sm"
+            responsiveLayout="scroll">
             <template #empty>
                 <div class="py-6 text-center text-surface-500">No price history yet.</div>
             </template>

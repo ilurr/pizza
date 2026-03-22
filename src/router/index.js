@@ -32,9 +32,19 @@ const router = createRouter({
                     component: () => import('@/views/pages/admin/AdminOrders.vue')
                 },
                 {
+                    path: '/dashboard/stock-inventory',
+                    name: 'dashboardStockInventory',
+                    component: () => import('@/views/pages/admin/AdminStockInventory.vue')
+                },
+                {
                     path: '/dashboard/drivers',
                     name: 'dashboardDrivers',
                     component: () => import('@/views/pages/admin/AdminDrivers.vue')
+                },
+                {
+                    path: '/dashboard/customers',
+                    name: 'dashboardCustomers',
+                    component: () => import('@/views/pages/admin/AdminCustomers.vue')
                 },
                 {
                     path: '/dashboard/analytics',
@@ -45,6 +55,16 @@ const router = createRouter({
                     path: '/dashboard/products',
                     name: 'dashboardProducts',
                     component: () => import('@/views/pages/admin/AdminProducts.vue')
+                },
+                {
+                    path: '/dashboard/recipes',
+                    name: 'dashboardRecipes',
+                    component: () => import('@/views/pages/admin/AdminRecipes.vue')
+                },
+                {
+                    path: '/dashboard/stock-products',
+                    name: 'dashboardStockProducts',
+                    component: () => import('@/views/pages/admin/AdminStockProducts.vue')
                 },
                 {
                     path: '/dashboard/notifications',

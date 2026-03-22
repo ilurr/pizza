@@ -9,6 +9,7 @@ import driverApi from './DriverApiService.js';
 import locationApi from './LocationApiService.js';
 import notificationApi from './NotificationApiService.js';
 import promoApi from './PromoApiService.js';
+import stockRecipesApi from './StockRecipesApiService.js';
 
 // Payment service integration (existing service)
 import PaymentService from '@/service/PaymentService.js';
@@ -28,6 +29,7 @@ class ApiClient {
         this.locations = locationApi;
         this.notifications = notificationApi;
         this.promos = promoApi;
+        this.stockRecipes = stockRecipesApi;
         this.payments = this.createPaymentWrapper();
     }
 
@@ -70,6 +72,7 @@ class ApiClient {
             locations: 'Location services and coverage areas',
             notifications: 'Notification system and templates',
             promos: 'Promo codes and discount management',
+            stockRecipes: 'Admin stock products & recipes (BOM)',
             payments: 'Payment processing and callbacks'
         };
     }
@@ -86,6 +89,7 @@ class ApiClient {
         this.locations.useMockApi = useMockApi;
         this.notifications.useMockApi = useMockApi;
         this.promos.useMockApi = useMockApi;
+        this.stockRecipes.useMockApi = useMockApi;
         console.log(`API mode switched to: ${useMockApi ? 'MOCK' : 'REAL'}`);
     }
 
@@ -97,6 +101,7 @@ class ApiClient {
         this.config.DATA_SOURCE = dataSource;
         this.orders.dataSource = dataSource;
         this.drivers.dataSource = dataSource;
+        this.stockRecipes.dataSource = dataSource;
         console.log(`Data source switched to: ${dataSource}`);
     }
 
@@ -169,10 +174,11 @@ class ApiClient {
         const services = [
             { name: 'products', service: this.products, test: () => this.products.getPizzas({ limit: 1 }) },
             { name: 'orders', service: this.orders, test: () => this.orders.getUserOrders('test_user', { limit: 1 }) },
-            { name: 'drivers', service: this.drivers, test: () => this.drivers.getDriverProfile('driver_001') },
+            { name: 'drivers', service: this.drivers, test: () => this.drivers.listDrivers() },
             { name: 'locations', service: this.locations, test: () => this.locations.getCoverageAreas({ limit: 1 }) },
             { name: 'notifications', service: this.notifications, test: () => this.notifications.getUserNotifications('test_user', { limit: 1 }) },
-            { name: 'promos', service: this.promos, test: () => this.promos.getAvailablePromos('test_user', { limit: 1 }) }
+            { name: 'promos', service: this.promos, test: () => this.promos.getAvailablePromos('test_user', { limit: 1 }) },
+            { name: 'stockRecipes', service: this.stockRecipes, test: () => this.stockRecipes.getStockProducts() }
         ];
 
         for (const { name, test } of services) {
@@ -308,12 +314,12 @@ if (typeof window !== 'undefined') {
 }
 
 // Named exports for individual services (backward compatibility)
-export { productsApi, ordersApi, driverApi, locationApi, notificationApi, promoApi, PaymentService, BaseApiService, API_CONFIG };
+export { productsApi, ordersApi, driverApi, locationApi, notificationApi, promoApi, stockRecipesApi, PaymentService, BaseApiService, API_CONFIG };
 
 // Default export - main API client
 export default apiClient;
 
 // Convenience exports
-export const { products, orders, drivers, locations, notifications, promos, payments } = apiClient;
+export const { products, orders, drivers, locations, notifications, promos, payments, stockRecipes } = apiClient;
 
 export const { shortcuts } = apiClient;

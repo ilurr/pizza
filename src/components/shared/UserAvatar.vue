@@ -31,21 +31,7 @@ const { userInitials, bgColor } = useAvatar(computed(() => props.name));
 
 <template>
     <span class="inline-flex items-center justify-center">
-        <Avatar
-            v-if="avatar"
-            :image="avatar"
-            :size="size"
-            :shape="shape"
-            :class="extraClass"
-        />
-        <Avatar
-            v-else
-            :label="userInitials"
-            :size="size"
-            :shape="shape"
-            :style="{ backgroundColor: bgColor }"
-            :class="extraClass"
-        />
+        <Avatar v-if="avatar" :image="avatar" :size="size" :shape="shape" :class="extraClass" />
+        <Avatar v-else :label="userInitials" :size="size" :shape="shape" :style="{ backgroundColor: bgColor }" :class="extraClass" />
     </span>
 </template>
-

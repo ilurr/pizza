@@ -24,7 +24,7 @@ const fetchOrders = async () => {
     isLoading.value = true;
     try {
         const res = await api.orders.getDriverOrders(driverId);
-        const list = (res?.success && res?.data?.orders) ? res.data.orders : [];
+        const list = res?.success && res?.data?.orders ? res.data.orders : [];
         // Mark as app orders (from driver_id). When we have offline orders API, merge and set orderType.
         orders.value = list.map((o) => ({ ...o, orderType: 'app' }));
     } catch (e) {
@@ -66,27 +66,9 @@ onMounted(() => {
         </div>
 
         <div class="flex flex-wrap gap-2 mb-4">
-            <Button
-                :label="'All'"
-                :severity="filterType === 'all' ? 'primary' : 'secondary'"
-                size="small"
-                outlined
-                @click="filterType = 'all'"
-            />
-            <Button
-                label="App"
-                :severity="filterType === 'app' ? 'primary' : 'secondary'"
-                size="small"
-                outlined
-                @click="filterType = 'app'"
-            />
-            <Button
-                label="Walk-in"
-                :severity="filterType === 'walk-in' ? 'primary' : 'secondary'"
-                size="small"
-                outlined
-                @click="filterType = 'walk-in'"
-            />
+            <Button :label="'All'" :severity="filterType === 'all' ? 'primary' : 'secondary'" size="small" outlined @click="filterType = 'all'" />
+            <Button label="App" :severity="filterType === 'app' ? 'primary' : 'secondary'" size="small" outlined @click="filterType = 'app'" />
+            <Button label="Walk-in" :severity="filterType === 'walk-in' ? 'primary' : 'secondary'" size="small" outlined @click="filterType = 'walk-in'" />
         </div>
 
         <div v-if="isLoading" class="flex justify-center py-8">

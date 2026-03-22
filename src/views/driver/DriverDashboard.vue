@@ -1,9 +1,11 @@
 <script setup>
 import { useDriverStore } from '@/stores/driverStore.js';
+import { useUserStore } from '@/stores/userStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const driverStore = useDriverStore();
+const userStore = useUserStore();
 const toast = useToast();
 
 const refreshInterval = ref(null);
@@ -34,8 +36,16 @@ const todayEarnings = computed(() => {
 
 // Methods
 const toggleOnlineStatus = async () => {
-    driverStore.toggleOnlineStatus();
-
+    const result = await driverStore.toggleOnlineStatus();
+    if (!result.success) {
+        toast.add({
+            severity: 'error',
+            summary: 'Could not update status',
+            detail: result.error || 'Try again',
+            life: 4000
+        });
+        return;
+    }
     if (driverStore.isOnline) {
         await driverStore.updateLocation();
         toast.add({
@@ -122,10 +132,8 @@ const updateOrderStatus = async (orderId, status) => {
     const result = await driverStore.updateOrderStatus(orderId, status, driverStore.currentLocation);
     if (result.success) {
         const statusMessages = {
-            en_route: 'Status updated: On the way to customer',
-            arrived: 'Status updated: Arrived at location',
-            cooking: 'Status updated: Cooking pizza',
-            ready: 'Status updated: Pizza is ready',
+            preparing: 'Status updated: Preparing order',
+            on_delivery: 'Status updated: On the way to customer',
             delivered: 'Order completed successfully!'
         };
 
@@ -160,19 +168,19 @@ const formatTime = (dateString) => {
 const getOrderStatusColor = (status) => {
     const colors = {
         pending: 'warn',
-        accepted: 'info',
-        en_route: 'info',
-        arrived: 'warn',
-        cooking: 'warn',
-        ready: 'success',
-        delivered: 'success'
+        assigned: 'warn',
+        preparing: 'info',
+        on_delivery: 'info',
+        delivered: 'success',
+        cancelled: 'danger'
     };
     return colors[status] || 'info';
 };
 
 // Lifecycle
 onMounted(async () => {
-    await driverStore.initializeDriver('driver_001');
+    const id = userStore.user?.id != null && String(userStore.user.id) !== '' ? String(userStore.user.id) : null;
+    if (id) await driverStore.initializeDriver(id);
 
     // Set up periodic refresh
     refreshInterval.value = setInterval(refreshData, 30000); // Every 30 seconds
@@ -343,13 +351,10 @@ onUnmounted(() => {
                                 <p class="text-xs text-gray-600">Distance: {{ order.distance }}km</p>
                             </div>
 
-                            <!-- Status Update Buttons -->
-                            <div class="grid grid-cols-2 gap-2">
-                                <Button v-if="order.status === 'accepted'" label="En Route" icon="pi pi-arrow-right" @click="updateOrderStatus(order.id, 'en_route')" size="small" severity="info" />
-                                <Button v-if="order.status === 'en_route'" label="Arrived" icon="pi pi-map-marker" @click="updateOrderStatus(order.id, 'arrived')" size="small" severity="warn" />
-                                <Button v-if="order.status === 'arrived'" label="Start Cooking" icon="pi pi-play" @click="updateOrderStatus(order.id, 'cooking')" size="small" severity="warn" />
-                                <Button v-if="order.status === 'cooking'" label="Pizza Ready" icon="pi pi-check" @click="updateOrderStatus(order.id, 'ready')" size="small" severity="success" />
-                                <Button v-if="order.status === 'ready'" label="Delivered" icon="pi pi-verified" @click="updateOrderStatus(order.id, 'delivered')" size="small" severity="success" class="col-span-2" />
+                            <!-- Status updates (matches Supabase/API order statuses) -->
+                            <div class="grid grid-cols-1 gap-2">
+                                <Button v-if="order.status === 'preparing'" label="On the way" icon="pi pi-arrow-right" @click="updateOrderStatus(order.id, 'on_delivery')" size="small" severity="info" />
+                                <Button v-if="order.status === 'on_delivery'" label="Delivered" icon="pi pi-verified" @click="updateOrderStatus(order.id, 'delivered')" size="small" severity="success" />
                             </div>
                         </div>
                     </div>

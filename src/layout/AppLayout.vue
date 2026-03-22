@@ -1,5 +1,7 @@
 <script setup>
+import DriverMorningStockCheckinModal from '@/components/driver/DriverMorningStockCheckinModal.vue';
 import FloatingMenu from '@/components/landing/FloatingMenu.vue';
+import { ROLES } from '@/constants/roles.js';
 import { useLayout } from '@/layout/composables/layout';
 import api from '@/services/api/index.js';
 import { useDriverStore } from '@/stores/driverStore.js';
@@ -17,6 +19,57 @@ const userStore = useUserStore();
 const { layoutConfig, layoutState, isSidebarActive } = useLayout();
 
 const isDriverRoute = computed(() => route.path.startsWith('/driver'));
+
+/** Driver: mandatory morning stock check-in once per local calendar day */
+const morningCheckVisible = ref(false);
+
+function localDayKey() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toLocaleDateString('en-CA');
+}
+
+function localDayBoundsISO() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { startISO: start.toISOString(), endISO: end.toISOString() };
+}
+
+async function evaluateMorningStockCheck() {
+    if (!isDriverRoute.value || userStore.role !== ROLES.DRIVER) {
+        morningCheckVisible.value = false;
+        return;
+    }
+    const uid = userStore.user?.id;
+    if (uid == null || uid === '') {
+        morningCheckVisible.value = false;
+        return;
+    }
+    const dateKey = localDayKey();
+    try {
+        if (sessionStorage.getItem(`morningStockConfirmed_${String(uid)}_${dateKey}`) === '1') {
+            morningCheckVisible.value = false;
+            return;
+        }
+    } catch {
+        /* ignore */
+    }
+    try {
+        const res = await api.drivers.getDriverDailyConfirmationStatus(uid, { stockDate: dateKey });
+        if (res?.success && res.data?.confirmed) {
+            try {
+                sessionStorage.setItem(`morningStockConfirmed_${String(uid)}_${dateKey}`, '1');
+            } catch {
+                /* ignore */
+            }
+            morningCheckVisible.value = false;
+            return;
+        }
+    } catch (e) {
+        console.warn('[AppLayout] Morning stock confirmation check failed:', e);
+    }
+    morningCheckVisible.value = true;
+}
 
 // Use simple page-header (back + title) for driver sub-pages, same pattern as user/buyer
 const driverPageHeader = computed(() => {
@@ -80,16 +133,27 @@ watch(isDriverRoute, (newVal) => {
         if (!driverOrdersInterval.value) {
             driverOrdersInterval.value = setInterval(refreshDriverOnlineOrdersCount, 30000);
         }
+        evaluateMorningStockCheck();
     } else if (driverOrdersInterval.value) {
         clearInterval(driverOrdersInterval.value);
         driverOrdersInterval.value = null;
+        morningCheckVisible.value = false;
     }
 });
+
+watch(
+    () => [userStore.role, userStore.user?.id],
+    () => {
+        evaluateMorningStockCheck();
+    }
+);
 
 onMounted(() => {
     if (isDriverRoute.value) {
         refreshDriverOnlineOrdersCount();
         driverOrdersInterval.value = setInterval(refreshDriverOnlineOrdersCount, 30000);
+        // Ensure modal visibility is evaluated on initial mount.
+        evaluateMorningStockCheck();
     }
 });
 
@@ -146,8 +210,7 @@ function isOutsideClicked(event) {
 
 <template>
     <div class="layout-wrapper" :class="containerClass">
-        <app-topbar v-if="driverPageHeader" variant="page-header" :page-title="driverPageHeader.title"
-            @back="goBackDriver" />
+        <app-topbar v-if="driverPageHeader" variant="page-header" :page-title="driverPageHeader.title" @back="goBackDriver" />
         <app-topbar v-else :admin="true"></app-topbar>
         <app-sidebar></app-sidebar>
         <div class="layout-main-container">
@@ -158,6 +221,7 @@ function isOutsideClicked(event) {
         </div>
         <div class="layout-mask animate-fadein"></div>
         <FloatingMenu v-if="isDriverRoute" :items="driverMenuItems" :badge-counts="driverBadgeCounts" />
+        <DriverMorningStockCheckinModal v-if="isDriverRoute && userStore.role === ROLES.DRIVER && userStore.user?.id != null" v-model="morningCheckVisible" :driver-id="userStore.user.id" @confirmed="evaluateMorningStockCheck" />
     </div>
     <Toast />
 </template>

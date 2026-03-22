@@ -13,14 +13,8 @@ const orders = ref([]);
 const isLoading = ref(false);
 const updatingId = ref(null);
 
-const activeOrders = computed(() =>
-    orders.value.filter(
-        (o) => !['delivered', 'cancelled'].includes(o.status)
-    )
-);
-const completedOrders = computed(() =>
-    orders.value.filter((o) => o.status === 'delivered')
-);
+const activeOrders = computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status)));
+const completedOrders = computed(() => orders.value.filter((o) => o.status === 'delivered'));
 
 const fetchOrders = async () => {
     const driverId = userStore.user?.id;
@@ -28,7 +22,7 @@ const fetchOrders = async () => {
     isLoading.value = true;
     try {
         const res = await api.orders.getDriverOrders(driverId);
-        orders.value = (res?.success && res?.data?.orders) ? res.data.orders : [];
+        orders.value = res?.success && res?.data?.orders ? res.data.orders : [];
     } catch (e) {
         console.error('Failed to fetch driver orders:', e);
         orders.value = [];
@@ -103,7 +97,8 @@ onMounted(() => {
 <template>
     <div class="p-4">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <p class="text-600 dark:text-400 text-sm mb-0">Handle and complete orders assigned to you until delivered.</p>
+            <p class="text-600 dark:text-400 text-sm mb-0">Handle and complete orders assigned to you until delivered.
+            </p>
             <Button label="View all history" icon="pi pi-history" outlined size="small" @click="goToHistory" />
         </div>
 
@@ -115,25 +110,25 @@ onMounted(() => {
             <!-- Active -->
             <div class="mb-6">
                 <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0 mb-3">Active</h3>
-                <div v-if="activeOrders.length === 0" class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 p-6 text-center text-600">
-                    <i class="pi pi-inbox text-4xl mb-2 block"></i>
+                <div v-if="activeOrders.length === 0"
+                    class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 p-6 text-center text-600">
+                    <i class="pi pi-inbox !text-4xl mb-2 block"></i>
                     <p class="mb-0">No active orders. New orders assigned to you will appear here.</p>
                 </div>
                 <div v-else class="space-y-3">
-                    <div
-                        v-for="order in activeOrders"
-                        :key="order.id"
-                        class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-card dark:bg-card p-4"
-                    >
+                    <div v-for="order in activeOrders" :key="order.id"
+                        class="rounded-xl border-2 border-surface-200 dark:border-surface-700 bg-card dark:bg-card p-4">
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                                <div class="font-semibold text-surface-900 dark:text-surface-0">{{ order.orderNumber }}</div>
+                                <div class="font-semibold text-surface-900 dark:text-surface-0">{{ order.orderNumber }}
+                                </div>
                                 <div class="text-sm text-600">{{ order.customerName }}</div>
                                 <div class="text-sm text-600 mt-1">{{ formatDate(order.orderDate) }}</div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <Tag :value="order.status" :severity="getStatusSeverity(order.status)" />
-                                <span class="font-semibold text-red-600 dark:text-red-400">{{ formatCurrency(order.total) }}</span>
+                                <span class="font-semibold text-red-600 dark:text-red-400">{{
+                                    formatCurrency(order.total) }}</span>
                             </div>
                         </div>
                         <div v-if="order.deliveryAddress?.address" class="mt-2 text-sm text-600 flex items-start gap-2">
@@ -141,21 +136,15 @@ onMounted(() => {
                             <span>{{ order.deliveryAddress.address }}</span>
                         </div>
                         <div v-if="order.customerPhone" class="mt-2">
-                            <a :href="`tel:${order.customerPhone}`" class="text-sm text-primary font-medium">
-                                <i class="pi pi-phone mr-1"></i>{{ order.customerPhone }}
-                            </a>
+                            <a :href="`tel:${order.customerPhone}`" class="text-sm text-primary font-medium"> <i
+                                    class="pi pi-phone mr-1"></i>{{ order.customerPhone }} </a>
                         </div>
                         <div class="mt-3 pt-3 border-t border-surface-200 dark:border-surface-700 flex flex-wrap gap-2">
-                            <Button
-                                v-if="getNextAction(order)"
-                                :label="getNextAction(order).label"
-                                :icon="getNextAction(order).icon"
-                                size="small"
-                                :loading="updatingId === order.id"
+                            <Button v-if="getNextAction(order)" :label="getNextAction(order).label"
+                                :icon="getNextAction(order).icon" size="small" :loading="updatingId === order.id"
                                 :disabled="updatingId !== null"
                                 :severity="order.status === 'on_delivery' ? 'success' : 'primary'"
-                                @click="updateStatus(order.id, getNextAction(order).status)"
-                            />
+                                @click="updateStatus(order.id, getNextAction(order).status)" />
                         </div>
                     </div>
                 </div>
@@ -165,7 +154,8 @@ onMounted(() => {
             <div>
                 <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0 mb-3">Completed (recent)</h3>
                 <div v-if="completedOrders.length === 0" class="text-sm text-600">No completed orders yet.</div>
-                <DataTable v-else :value="completedOrders.slice(0, 5)" responsiveLayout="scroll" class="p-datatable-sm" :paginator="false">
+                <DataTable v-else :value="completedOrders.slice(0, 5)" responsiveLayout="scroll" class="p-datatable-sm"
+                    :paginator="false">
                     <Column field="orderNumber" header="Order #" />
                     <Column field="customerName" header="Customer" />
                     <Column header="Total">

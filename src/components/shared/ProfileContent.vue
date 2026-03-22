@@ -84,11 +84,7 @@ onMounted(async () => {
                 <div class="flex items-center gap-4">
                     <!-- Avatar -->
                     <div class="relative basis-1/6 w-1/6 grow-0">
-                        <UserAvatar
-                            :avatar="userStore.user?.avatar || ''"
-                            :name="userStore.user?.fullname || userStore.user?.username || ''"
-                            size="large"
-                        />
+                        <UserAvatar :avatar="userStore.user?.avatar || ''" :name="userStore.user?.fullname || userStore.user?.username || ''" size="large" />
                     </div>
 
                     <!-- User Info -->

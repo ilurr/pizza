@@ -20,7 +20,7 @@ create table if not exists public.driver_daily_deposits (
 create index if not exists idx_driver_daily_deposits_driver_date
     on public.driver_daily_deposits (driver_id, deposit_date);
 
-comment on table public.driver_daily_deposits is 'Per-product daily deposit rows: early stock, sold, online/offline cash/qris amounts, total earning (Rp).';
+comment on table public.driver_daily_deposits is 'Per-product daily ledger: sold qty, online vs walk-in cash/QRIS, line totals. After driver Close day confirmation, the app replaces rows for that calendar day from delivered orders (optional manual-only rows use unique product names).';
 
 -- Sample data (driver_001, today + a few past days)
 insert into public.driver_daily_deposits (driver_id, deposit_date, product_name, early_stock, sold_items, online_amount, offline_cash_amount, offline_qris_amount, total_earning)

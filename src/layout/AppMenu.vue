@@ -20,8 +20,17 @@ const adminModel = ref([
         label: 'Management',
         items: [
             { label: 'Orders', icon: 'pi pi-fw pi-shopping-cart', to: '/dashboard/orders' },
+            { label: 'Stock Inventory', icon: 'pi pi-fw pi-database', to: '/dashboard/stock-inventory' }
+        ]
+    },
+    {
+        label: 'Master',
+        items: [
             { label: 'Drivers', icon: 'pi pi-fw pi-users', to: '/dashboard/drivers' },
-            { label: 'Product', icon: 'pi pi-fw pi-list', to: '/dashboard/products' }
+            { label: 'Customers', icon: 'pi pi-fw pi-user', to: '/dashboard/customers' },
+            { label: 'Products', icon: 'pi pi-fw pi-box', to: '/dashboard/products' },
+            { label: 'Recipes', icon: 'pi pi-fw pi-list-check', to: '/dashboard/recipes' },
+            { label: 'Ingredients', icon: 'pi pi-fw pi-database', to: '/dashboard/stock-products' }
         ]
     }
 ]);

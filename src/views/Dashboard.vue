@@ -253,25 +253,25 @@ onMounted(async () => {
         <div class="grid grid-cols-12 gap-4 mb-4">
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Pilih Parameter</label>
-                <Dropdown v-model="selectedMetric" :options="metricOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedMetric" :options="metricOptions" optionLabel="label" optionValue="value" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Pilih Hari</label>
-                <Dropdown v-model="selectedRange" :options="rangeOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedRange" :options="rangeOptions" optionLabel="label" optionValue="value" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Tanggal Mulai</label>
-                <Calendar v-model="startDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy"
+                <DatePicker v-model="startDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy"
                     :disabled="selectedRange !== 'custom'" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Tanggal Akhir</label>
-                <Calendar v-model="endDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy"
+                <DatePicker v-model="endDate" dateFormat="dd/mm/yy" placeholder="dd/mm/yy"
                     :disabled="selectedRange !== 'custom'" class="w-full" />
             </div>
             <div class="col-span-12 md:col-span-3">
                 <label class="block text-sm font-medium mb-2">Driver</label>
-                <Dropdown v-model="selectedDriverId" :options="driverOptions" optionLabel="label" optionValue="value" class="w-full" />
+                <Select v-model="selectedDriverId" :options="driverOptions" optionLabel="label" optionValue="value" class="w-full" />
             </div>
         </div>
 

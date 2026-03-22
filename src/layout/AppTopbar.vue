@@ -98,7 +98,7 @@ const setupNotificationListeners = () => {
 
 // Cleanup
 const cleanup = () => {
-    NotificationService.off('payment_update', () => { });
+    NotificationService.off('payment_update', () => {});
 };
 
 // Check user data on mount (in case of refresh)
@@ -139,29 +139,24 @@ onUnmounted(() => {
 
 <template>
     <div class="layout-topbar">
-        <div
-            :class="['relative flex items-center justify-between w-full lg:max-w-screen-lg lg:px-4 mx-auto lg:!max-w-full', classes]">
+        <div :class="['relative flex items-center justify-between w-full lg:max-w-screen-lg lg:px-4 mx-auto lg:!max-w-full', classes]">
             <!-- Page Header Variant -->
             <div v-if="variant === 'page-header'" class="layout-topbar-logo-container">
                 <div class="flex items-center">
-                    <Button severity="contrast" icon="pi pi-arrow-left" text size="large" class="text-primary -ml-4"
-                        @click="goBack" />
+                    <Button severity="contrast" icon="pi pi-arrow-left" text size="large" class="text-primary -ml-4" @click="goBack" />
                     <h1 class="text-xl m-0 ml-0 font-bold text-gray-900 dark:text-white">{{ pageTitle }}</h1>
                 </div>
             </div>
 
             <!-- Page Header Actions -->
             <div v-if="variant === 'page-header' && showNotificationActions" class="layout-topbar-actions">
-                <Button severity="contrast" icon="pi pi-ellipsis-v" text @click="toggleNotificationMenu"
-                    aria-haspopup="true" aria-controls="notification_actions_menu" />
-                <Menu ref="notificationMenu" id="notification_actions_menu" popup :model="notificationMenuItems"
-                    class="!min-w-40" />
+                <Button severity="contrast" icon="pi pi-ellipsis-v" text @click="toggleNotificationMenu" aria-haspopup="true" aria-controls="notification_actions_menu" />
+                <Menu ref="notificationMenu" id="notification_actions_menu" popup :model="notificationMenuItems" class="!min-w-40" />
             </div>
 
             <!-- Default/Container Variant -->
             <div v-if="variant !== 'page-header'" class="layout-topbar-logo-container">
-                <button class="layout-menu-button layout-topbar-action" @click="toggleMenu"
-                    v-if="canAccessDashboard && isDashboardRoute">
+                <button class="layout-menu-button layout-topbar-action" @click="toggleMenu" v-if="canAccessDashboard && isDashboardRoute">
                     <i class="pi pi-bars"></i>
                 </button>
 
@@ -175,24 +170,23 @@ onUnmounted(() => {
 
             <div v-if="variant !== 'page-header'" class="layout-topbar-actions">
                 <button class="layout-menu-button layout-topbar-action" @click="goToNotifications">
-                    <OverlayBadge severity="primary"
-                        :value="notificationCount > 0 ? notificationCount.toString() : null">
+                    <OverlayBadge severity="primary" :value="notificationCount > 0 ? notificationCount.toString() : null">
                         <i class="pi pi-bell" />
                     </OverlayBadge>
                 </button>
 
-                <button class="layout-topbar-menu-button layout-topbar-action"
+                <button
+                    class="layout-topbar-menu-button layout-topbar-action"
                     v-styleclass="{ selector: '@next', enterFromClass: 'hidden', enterActiveClass: 'animate-scalein', leaveToClass: 'hidden', leaveActiveClass: 'animate-fadeout', hideOnOutsideClick: true }"
-                    v-if="canAccessDashboard">
-                    <UserAvatar :avatar="userStore.user?.avatar || ''"
-                        :name="userStore.user?.fullname || userStore.user?.username || ''" size="small" />
+                    v-if="canAccessDashboard"
+                >
+                    <UserAvatar :avatar="userStore.user?.avatar || ''" :name="userStore.user?.fullname || userStore.user?.username || ''" size="small" />
                 </button>
 
                 <div class="layout-topbar-menu hidden">
                     <div class="layout-topbar-menu-content">
                         <!-- Navigation Shortcuts -->
-                        <router-link to="/"
-                            v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === ROLES.SUPERADMIN || userStore.role === ROLES.MITRA)">
+                        <router-link to="/" v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === ROLES.SUPERADMIN || userStore.role === ROLES.MITRA)">
                             <button type="button" class="layout-topbar-action">
                                 <i class="pi pi-home"></i>
                                 <span>Home</span>
@@ -200,8 +194,7 @@ onUnmounted(() => {
                         </router-link>
 
                         <!-- Dashboard (admin/mitra) -->
-                        <router-link to="/dashboard"
-                            v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === ROLES.SUPERADMIN || userStore.role === ROLES.MITRA)">
+                        <router-link to="/dashboard" v-if="canAccessDashboard && !isDashboardRoute && (userStore.role === ROLES.SUPERADMIN || userStore.role === ROLES.MITRA)">
                             <button type="button" class="layout-topbar-action">
                                 <i class="pi pi-th-large"></i>
                                 <span>Dashboard</span>
@@ -209,8 +202,7 @@ onUnmounted(() => {
                         </router-link>
 
                         <!-- Driver Dashboard -->
-                        <router-link to="/driver"
-                            v-if="userStore.role === ROLES.DRIVER && !route.path.startsWith('/driver')">
+                        <router-link to="/driver" v-if="userStore.role === ROLES.DRIVER && !route.path.startsWith('/driver')">
                             <button type="button" class="layout-topbar-action">
                                 <i class="pi pi-home"></i>
                                 <span>Dashboard</span>
@@ -218,8 +210,7 @@ onUnmounted(() => {
                         </router-link>
 
                         <!-- Settings -->
-                        <button type="button" class="layout-topbar-action" @click="toggleDarkMode" title="Theme Mode"
-                            aria-label="Theme Mode">
+                        <button type="button" class="layout-topbar-action" @click="toggleDarkMode" title="Theme Mode" aria-label="Theme Mode">
                             <i :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"></i>
                             <span>{{ isDarkTheme ? 'Dark Mode' : 'Light Mode' }}</span>
                         </button>
@@ -233,8 +224,7 @@ onUnmounted(() => {
                         </router-link>
 
                         <!-- Logout -->
-                        <button type="button" class="layout-topbar-action" @click="handleLogout" title="Logout"
-                            aria-label="Logout" v-if="userStore.user">
+                        <button type="button" class="layout-topbar-action" @click="handleLogout" title="Logout" aria-label="Logout" v-if="userStore.user">
                             <i class="pi pi-sign-out"></i>
                             <span>Logout</span>
                         </button>

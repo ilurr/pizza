@@ -87,56 +87,39 @@ const handleLogin = async () => {
 </script>
 
 <template>
-    <div
-        class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
+    <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
         <div class="fixed bottom-0 size-full z-[1] overflow-hidden">
-            <img :src="bg" alt=""
-                class="absolute top-0 w-[100vw] h-[100vw] md:w-full md:h-full opacity-50 md:opacity-100 -rotate-90 md:rotate-180 object-cover" />
+            <img :src="bg" alt="" class="absolute top-0 w-[100vw] h-[100vw] md:w-full md:h-full opacity-50 md:opacity-100 -rotate-90 md:rotate-180 object-cover" />
         </div>
         <div class="min-w-[425px] hidden md:block"></div>
         <div class="max-w-lg flex flex-col items-center justify-center mt-16 mb-8 px-4 sm:px-0 z-[2]">
-            <div
-                class="w-full bg-white dark:bg-neutral-900 py-6 px-6 sm:px-10 sm:py-10 rounded-xl shadow-lg md:shadow-2xl">
+            <div class="w-full bg-white dark:bg-neutral-900 py-6 px-6 sm:px-10 sm:py-10 rounded-xl shadow-lg md:shadow-2xl">
                 <div class="flex justify-center flex-col items-center mb-8">
                     <div class="flex justify-center items-center w-24 mb-6 -mt-20 md:-mt-24">
-                        <ImageWithSkeleton :src="logo" wrapperClass="relative mx-auto aspect-square md:rounded-xl"
-                            width="84px" height="84px" />
+                        <ImageWithSkeleton :src="logo" wrapperClass="relative mx-auto aspect-square md:rounded-xl" width="84px" height="84px" />
                     </div>
-                    <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4 text-left w-full">Sign In
-                    </div>
-                    <span class="text-muted-color font-medium">Setelah login, Kamu bisa panggil papa pizza untuk dateng
-                        ke tempat kamu!</span>
+                    <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4 text-left w-full">Sign In</div>
+                    <span class="text-muted-color font-medium">Setelah login, Kamu bisa panggil papa pizza untuk dateng ke tempat kamu!</span>
                 </div>
 
                 <form @submit.prevent="handleLogin">
-                    <label for="identifier"
-                        class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
-                    <InputText id="identifier" type="email" placeholder="Your email"
-                        class="w-full h-[37px] px-[0.75rem] mb-8" v-model="identifier"
-                        :class="{ 'p-invalid': fieldErrors.identifier }" />
-                    <small v-if="fieldErrors.identifier" class="p-error block -mt-6 mb-4">{{ fieldErrors.identifier
-                    }}</small>
+                    <label for="identifier" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
+                    <InputText id="identifier" type="email" placeholder="Your email" class="w-full h-[37px] px-[0.75rem] mb-8" v-model="identifier" :class="{ 'p-invalid': fieldErrors.identifier }" />
+                    <small v-if="fieldErrors.identifier" class="p-error block -mt-6 mb-4">{{ fieldErrors.identifier }}</small>
 
-                    <label for="password"
-                        class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password</label>
-                    <Password id="password" v-model="password" placeholder="Your password" :toggleMask="true"
-                        class="w-full h-[37px] mb-8" fluid :feedback="false" :invalid="!!fieldErrors.password">
-                    </Password>
-                    <small v-if="fieldErrors.password" class="p-error block -mt-6 mb-4">{{ fieldErrors.password
-                    }}</small>
+                    <label for="password" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password</label>
+                    <Password id="password" v-model="password" placeholder="Your password" :toggleMask="true" class="w-full h-[37px] mb-8" fluid :feedback="false" :invalid="!!fieldErrors.password"> </Password>
+                    <small v-if="fieldErrors.password" class="p-error block -mt-6 mb-4">{{ fieldErrors.password }}</small>
 
                     <div class="flex items-center justify-between mb-8 gap-8">
                         <!-- <div class="flex items-center">
                             <Checkbox v-model="checked" id="rememberme1" binary class="mr-2"></Checkbox>
                             <label for="rememberme1">Remember me</label>
                         </div> -->
-                        <router-link to="/auth/forgot-password"
-                            class="font-medium no-underline text-right cursor-pointer text-primary hover:underline">Forgot
-                            password?</router-link>
+                        <router-link to="/auth/forgot-password" class="font-medium no-underline text-right cursor-pointer text-primary hover:underline">Forgot password?</router-link>
                     </div>
                     <Button label="Log In" class="w-full" type="submit"></Button>
-                    <Message v-if="errorMessage" severity="error" variant="simple" size="small"
-                        class="w-full flex justify-center px-2 py-1">{{ errorMessage }}</Message>
+                    <Message v-if="errorMessage" severity="error" variant="simple" size="small" class="w-full flex justify-center px-2 py-1">{{ errorMessage }}</Message>
                 </form>
 
                 <Divider layout="horizontal" class="flex !mt-6 !mb-8">Atau, kamu bisa daftar dulu</Divider>

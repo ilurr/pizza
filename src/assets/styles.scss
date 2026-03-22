@@ -31,3 +31,9 @@
     }
   }
 }
+
+.p-inputtext {
+  .w-full > & {
+    width: 100%;
+  }
+}

@@ -1,4 +1,26 @@
+import api from '@/services/api/index.js';
 import { defineStore } from 'pinia';
+
+/** Map API order → shape used by driver UI */
+function normalizeDriverOrder(o) {
+    if (!o) return null;
+    const addr = o.deliveryAddress || {};
+    const lat = addr.lat ?? addr.latitude ?? addr.coordinates?.lat;
+    const lng = addr.lng ?? addr.longitude ?? addr.coordinates?.lng;
+    const address = addr.address || addr.formatted || addr.fullAddress || (typeof addr === 'string' ? addr : '') || '—';
+    return {
+        ...o,
+        deliveryLocation: {
+            address,
+            coordinates: lat != null && lng != null && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng)) ? { lat: Number(lat), lng: Number(lng) } : null
+        },
+        requestedAt: o.orderDate || o.createdAt,
+        distance: typeof o.distance === 'number' ? o.distance : 0,
+        estimatedCookingTime: typeof o.estimatedCookingTime === 'number' ? o.estimatedCookingTime : 15,
+        completedAt: o.deliveryTime || o.updatedAt || o.orderDate,
+        driverEarnings: o.driverEarnings ?? 0
+    };
+}
 
 export const useDriverStore = defineStore('driver', {
     state: () => ({
@@ -41,7 +63,7 @@ export const useDriverStore = defineStore('driver', {
     getters: {
         // Get orders that need driver attention
         ordersRequiringAction: (state) => {
-            return state.pendingOrders.filter((order) => order.status === 'pending' && state.isOrderInCoverage(order.deliveryLocation));
+            return state.pendingOrders.filter((order) => ['pending', 'assigned'].includes(order.status) && state.isOrderInCoverage(order.deliveryLocation));
         },
 
         // Check if driver is currently working
@@ -58,12 +80,15 @@ export const useDriverStore = defineStore('driver', {
         // Get today's statistics
         todayStats: (state) => {
             const today = new Date().toDateString();
-            const todayOrders = state.completedOrders.filter((order) => new Date(order.completedAt).toDateString() === today);
-
+            const todayOrders = state.completedOrders.filter((order) => {
+                const d = order.completedAt || order.deliveryTime || order.updatedAt;
+                return d && new Date(d).toDateString() === today;
+            });
+            const minutes = todayOrders.map((order) => (typeof order.deliveryTimeMinutes === 'number' ? order.deliveryTimeMinutes : null)).filter((n) => n != null);
             return {
                 deliveries: todayOrders.length,
                 earnings: todayOrders.reduce((sum, order) => sum + (order.driverEarnings || 0), 0),
-                averageTime: todayOrders.length > 0 ? todayOrders.reduce((sum, order) => sum + order.deliveryTime, 0) / todayOrders.length : 0
+                averageTime: minutes.length ? minutes.reduce((a, b) => a + b, 0) / minutes.length : 0
             };
         }
     },
@@ -71,143 +96,136 @@ export const useDriverStore = defineStore('driver', {
     actions: {
         // Initialize driver data
         async initializeDriver(driverId) {
-            // Prevent multiple initializations
-            if (this.isInitialized) {
-                console.log('Driver already initialized, skipping...');
+            const sid = String(driverId ?? '');
+            // Same session, same user: skip redundant work
+            if (this.isInitialized && this.driverProfile?.id === sid) {
                 return;
             }
 
             try {
-                console.log('Initializing driver:', driverId);
-                // In production, this would fetch from API
-                this.driverProfile = await this.fetchDriverProfile(driverId);
+                this.driverProfile = await this.fetchDriverProfile(sid);
+                this.isOnline = this.driverProfile.isOnline === true;
+                this.isAvailable = this.driverProfile.isAvailable !== false;
                 this.coverageArea = this.driverProfile.coverageArea || this.coverageArea;
                 await this.loadOrders();
                 await this.updateLocation();
                 this.isInitialized = true;
-                console.log('Driver initialization completed');
             } catch (error) {
                 console.error('Failed to initialize driver:', error);
+                this.driverProfile = null;
+                this.isInitialized = false;
+                this.pendingOrders = [];
+                this.activeOrders = [];
+                this.completedOrders = [];
             }
         },
 
-        // Mock driver profile fetch
         async fetchDriverProfile(driverId) {
-            // Mock data - replace with actual API call
-            const mockProfiles = {
-                driver_001: {
-                    id: 'driver_001',
-                    name: 'Pak Agus',
-                    email: 'agus@pizza.com',
-                    phone: '081234567899',
-                    avatar: 'https://voyee.id/assets/foto_seller/2024_06_17_18_28_06_1718623686_35496cf2d62376ca0ef0.jpg',
-                    rating: 4.8,
-                    totalDeliveries: 245,
-                    vehicleInfo: {
-                        type: 'motorcycle',
-                        plate: 'B 1234 AG',
-                        model: 'Honda Beat'
-                    },
-                    coverageArea: {
-                        center: { lat: -7.2575, lng: 112.7521 },
-                        radius: 8,
-                        polygon: []
-                    }
-                }
+            if (!driverId) {
+                throw new Error('Driver id is required');
+            }
+            const res = await api.drivers.getDriverProfile(driverId);
+            if (!res?.success || !res.data?.driver) {
+                const msg = res?.message || (typeof res?.error === 'string' ? res.error : null) || 'Driver profile not found';
+                throw new Error(msg);
+            }
+            const d = res.data.driver;
+            return {
+                id: String(d.id),
+                name: d.name || d.username || 'Driver',
+                email: d.email || '',
+                phone: d.phone || '',
+                avatar: d.avatar || '',
+                rating: Number(d.rating) || 0,
+                totalDeliveries: d.totalDeliveries ?? 0,
+                vehicleInfo: d.vehicleInfo || { type: 'motorcycle', plate: '', model: '' },
+                isOnline: d.isOnline === true,
+                isAvailable: d.isAvailable !== false,
+                coverageArea: this.coverageArea
             };
-
-            return mockProfiles[driverId] || mockProfiles['driver_001'];
         },
 
-        // Load orders for driver
         async loadOrders() {
             this.isLoadingOrders = true;
             try {
-                // Mock order data - replace with actual API calls
-                this.pendingOrders = await this.fetchPendingOrders();
-                this.activeOrders = await this.fetchActiveOrders();
-                this.completedOrders = await this.fetchCompletedOrders();
-
+                const did = this.driverProfile?.id;
+                if (!did) {
+                    this.pendingOrders = [];
+                    this.activeOrders = [];
+                    this.completedOrders = [];
+                    this.updateStats();
+                    return;
+                }
+                const res = await api.orders.getDriverOrders(String(did));
+                if (!res?.success) {
+                    this.pendingOrders = [];
+                    this.activeOrders = [];
+                    this.completedOrders = [];
+                    this.updateStats();
+                    return;
+                }
+                const raw = res.data.orders || [];
+                const orders = raw.map(normalizeDriverOrder).filter(Boolean);
+                this.pendingOrders = orders.filter((o) => ['pending', 'assigned'].includes(o.status));
+                this.activeOrders = orders.filter((o) => ['preparing', 'on_delivery'].includes(o.status));
+                this.completedOrders = orders.filter((o) => o.status === 'delivered');
                 this.updateStats();
             } catch (error) {
                 console.error('Failed to load orders:', error);
+                this.pendingOrders = [];
+                this.activeOrders = [];
+                this.completedOrders = [];
             } finally {
                 this.isLoadingOrders = false;
             }
         },
 
-        // Mock fetch functions - replace with actual API calls
-        async fetchPendingOrders() {
-            return [
-                {
-                    id: 'order_001',
-                    orderNumber: 'PZ-2024-001',
-                    customerName: 'John Doe',
-                    customerPhone: '081234567890',
-                    items: [
-                        { name: 'Margherita Classic', quantity: 2, price: 45000 },
-                        { name: 'Pepperoni Supreme', quantity: 1, price: 75000 }
-                    ],
-                    total: 165000,
-                    deliveryLocation: {
-                        address: 'Jl. Diponegoro No. 123, Surabaya',
-                        coordinates: { lat: -7.2575, lng: 112.7521 }
-                    },
-                    distance: 2.5,
-                    estimatedCookingTime: 15, // minutes
-                    requestedAt: new Date().toISOString(),
-                    status: 'pending',
-                    paymentMethod: 'QRIS',
-                    notes: 'Extra spicy sauce'
-                },
-                {
-                    id: 'order_002',
-                    orderNumber: 'PZ-2024-002',
-                    customerName: 'Jane Smith',
-                    customerPhone: '081234567891',
-                    items: [
-                        { name: 'Pepperoni Supreme', quantity: 1, price: 75000 },
-                        { name: 'Coca Cola', quantity: 2, price: 12000 }
-                    ],
-                    total: 99000,
-                    deliveryLocation: {
-                        address: 'Jl. Basuki Rahmat No. 456, Surabaya',
-                        coordinates: { lat: -7.2504, lng: 112.7688 }
-                    },
-                    distance: 3.2,
-                    estimatedCookingTime: 12,
-                    requestedAt: new Date(Date.now() - 5 * 60000).toISOString(), // 5 minutes ago
-                    status: 'pending',
-                    paymentMethod: 'Credit Card',
-                    notes: null
-                }
-            ];
-        },
-
-        async fetchActiveOrders() {
-            return [];
-        },
-
-        async fetchCompletedOrders() {
-            return [
-                {
-                    id: 'order_099',
-                    orderNumber: 'PZ-2024-099',
-                    customerName: 'Previous Customer',
-                    total: 125000,
-                    completedAt: new Date().toISOString(),
-                    deliveryTime: 25, // minutes
-                    driverEarnings: 25000
-                }
-            ];
-        },
-
         // Driver status management
-        toggleOnlineStatus() {
-            this.isOnline = !this.isOnline;
-            if (!this.isOnline) {
-                this.isAvailable = false;
+        /**
+         * Set online/offline and persist to API (app_users.is_online).
+         * @param {boolean} isOnline
+         * @param {string|number|null} [explicitDriverId] - Use when store has no profile yet (e.g. modals from layout)
+         */
+        async setOnlineStatusPersistent(isOnline, explicitDriverId = null) {
+            const next = !!isOnline;
+            const did = explicitDriverId != null ? String(explicitDriverId) : this.driverProfile?.id;
+            const sameUser = !this.driverProfile?.id || String(this.driverProfile.id) === String(did);
+
+            if (!did) {
+                if (sameUser) {
+                    this.isOnline = next;
+                    if (!next) this.isAvailable = false;
+                    else this.isAvailable = true;
+                }
+                return { success: true };
             }
+
+            try {
+                const res = await api.drivers.updateDriverStatus(String(did), { isOnline: next });
+                if (!res?.success) {
+                    const errMsg =
+                        res?.error?.message ||
+                        res?.message ||
+                        (typeof res?.error === 'string' ? res.error : null) ||
+                        'Failed to update status';
+                    return { success: false, error: errMsg };
+                }
+                if (sameUser) {
+                    this.isOnline = next;
+                    if (!next) this.isAvailable = false;
+                    else this.isAvailable = true;
+                    if (this.driverProfile) this.driverProfile.isOnline = next;
+                }
+                return { success: true };
+            } catch (error) {
+                console.error('Failed to set online status:', error);
+                return { success: false, error: error?.message || 'Failed to update status' };
+            }
+        },
+
+        async toggleOnlineStatus() {
+            const next = !this.isOnline;
+            return this.setOnlineStatusPersistent(next);
         },
 
         toggleAvailability() {
@@ -249,25 +267,20 @@ export const useDriverStore = defineStore('driver', {
             }
         },
 
-        // Order management
+        // Order management (statuses: pending → assigned → preparing → on_delivery → delivered)
         async acceptOrder(orderId) {
             this.isProcessingOrder = true;
             try {
                 const order = this.pendingOrders.find((o) => o.id === orderId);
-                if (order && this.canAcceptNewOrder) {
-                    // Move order from pending to active
-                    this.pendingOrders = this.pendingOrders.filter((o) => o.id !== orderId);
-                    order.status = 'accepted';
-                    order.acceptedAt = new Date().toISOString();
-                    order.driverId = this.driverProfile.id;
-                    this.activeOrders.push(order);
-
-                    // In production, make API call to update order status
-                    // await api.post(`/orders/${orderId}/accept`);
-
-                    return { success: true };
+                if (!order || !this.canAcceptNewOrder) {
+                    return { success: false, error: 'Cannot accept order' };
                 }
-                return { success: false, error: 'Cannot accept order' };
+                const res = await api.orders.updateOrderStatus(orderId, 'preparing');
+                if (!res?.success) {
+                    return { success: false, error: res?.message || 'Failed to accept order' };
+                }
+                await this.loadOrders();
+                return { success: true };
             } catch (error) {
                 console.error('Failed to accept order:', error);
                 return { success: false, error: error.message };
@@ -280,16 +293,15 @@ export const useDriverStore = defineStore('driver', {
             this.isProcessingOrder = true;
             try {
                 const order = this.pendingOrders.find((o) => o.id === orderId);
-                if (order) {
-                    // Remove from pending orders
-                    this.pendingOrders = this.pendingOrders.filter((o) => o.id !== orderId);
-
-                    // In production, make API call to reject order
-                    // await api.post(`/orders/${orderId}/reject`, { reason });
-
-                    return { success: true };
+                if (!order) {
+                    return { success: false, error: 'Order not found' };
                 }
-                return { success: false, error: 'Order not found' };
+                const res = await api.orders.updateOrderStatus(orderId, 'cancelled', {});
+                if (!res?.success) {
+                    return { success: false, error: res?.message || 'Failed to reject order' };
+                }
+                await this.loadOrders();
+                return { success: true };
             } catch (error) {
                 console.error('Failed to reject order:', error);
                 return { success: false, error: error.message };
@@ -301,33 +313,16 @@ export const useDriverStore = defineStore('driver', {
         async updateOrderStatus(orderId, status, location = null) {
             try {
                 const order = this.activeOrders.find((o) => o.id === orderId);
-                if (order) {
-                    order.status = status;
-                    order.lastUpdate = new Date().toISOString();
-
-                    if (location) {
-                        order.driverLocation = location;
-                    }
-
-                    // Handle order completion
-                    if (status === 'delivered') {
-                        order.completedAt = new Date().toISOString();
-                        order.deliveryTime = Math.floor((new Date() - new Date(order.acceptedAt)) / 60000); // minutes
-                        order.driverEarnings = Math.floor(order.total * 0.15); // 15% commission
-
-                        // Move to completed orders
-                        this.activeOrders = this.activeOrders.filter((o) => o.id !== orderId);
-                        this.completedOrders.unshift(order);
-
-                        this.updateStats();
-                    }
-
-                    // In production, make API call
-                    // await api.patch(`/orders/${orderId}/status`, { status, location });
-
-                    return { success: true };
+                if (!order) {
+                    return { success: false, error: 'Order not found' };
                 }
-                return { success: false, error: 'Order not found' };
+                // Pass only fields that exist on `orders` in Supabase; extend when you add driver_location etc.
+                const res = await api.orders.updateOrderStatus(orderId, status, {});
+                if (!res?.success) {
+                    return { success: false, error: res?.message || 'Failed to update status' };
+                }
+                await this.loadOrders();
+                return { success: true };
             } catch (error) {
                 console.error('Failed to update order status:', error);
                 return { success: false, error: error.message };
@@ -336,7 +331,7 @@ export const useDriverStore = defineStore('driver', {
 
         // Coverage area management
         isOrderInCoverage(location) {
-            if (!location || !location.coordinates) return false;
+            if (!location || !location.coordinates) return true;
 
             const distance = this.calculateDistance(this.coverageArea.center.lat, this.coverageArea.center.lng, location.coordinates.lat, location.coordinates.lng);
 
@@ -357,14 +352,14 @@ export const useDriverStore = defineStore('driver', {
             this.stats.totalDeliveries = this.completedOrders.length;
 
             const today = new Date().toDateString();
-            const todayOrders = this.completedOrders.filter((order) => new Date(order.completedAt).toDateString() === today);
+            const todayOrders = this.completedOrders.filter((order) => {
+                const d = order.completedAt || order.deliveryTime || order.updatedAt;
+                return d && new Date(d).toDateString() === today;
+            });
 
             this.stats.todayDeliveries = todayOrders.length;
             this.stats.todayEarnings = todayOrders.reduce((sum, order) => sum + (order.driverEarnings || 0), 0);
-
-            if (this.completedOrders.length > 0) {
-                this.stats.rating = this.driverProfile?.rating || 4.8;
-            }
+            this.stats.rating = this.driverProfile?.rating ?? 0;
         },
 
         // Reset driver state

@@ -1,6 +1,49 @@
 import { BaseApiService } from './ApiClient.js';
 import { getSupabaseClient } from '@/services/supabase/client.js';
 
+/** Walk-in cashier (guest) paying cash: money collected at counter → treat as paid when completed. */
+function isWalkInCashOrder(row) {
+    if (!row) return false;
+    const isGuestWalkIn = String(row.customer_id || '') === 'guest_user';
+    const isCash = String(row.payment_method || '').toLowerCase() === 'cash';
+    return isGuestWalkIn && isCash;
+}
+
+/**
+ * Admin list + detail read `driverInfo` from `orders.driver_info` (JSON). Walk-in and some flows only set `driver_id`.
+ * Merge display fields from `app_users` when name is missing so UIs don't show "—".
+ */
+async function enrichOrdersDriverInfoFromUsers(supabase, orders) {
+    if (!Array.isArray(orders) || !orders.length || !supabase) return orders;
+
+    const idsToFetch = new Set();
+    for (const o of orders) {
+        if (o.driverId == null || String(o.driverId) === '') continue;
+        const di = o.driverInfo;
+        const hasName = di && typeof di === 'object' && String(di.name || '').trim() !== '';
+        if (!hasName) idsToFetch.add(String(o.driverId));
+    }
+    if (!idsToFetch.size) return orders;
+
+    const ids = [...idsToFetch];
+    const { data: users, error } = await supabase.from('app_users').select('id, fullname, username, phone, avatar').in('id', ids);
+    if (error || !users?.length) return orders;
+
+    const byId = Object.fromEntries(users.map((u) => [String(u.id), u]));
+
+    return orders.map((o) => {
+        const id = o.driverId != null ? String(o.driverId) : '';
+        if (!id || !idsToFetch.has(id)) return o;
+        const u = byId[id];
+        if (!u) return o;
+        const prev = o.driverInfo && typeof o.driverInfo === 'object' ? { ...o.driverInfo } : {};
+        prev.name = String(prev.name || '').trim() || u.fullname || u.username || id;
+        prev.phone = String(prev.phone || '').trim() || u.phone || '';
+        if (u.avatar && (prev.avatar == null || prev.avatar === '')) prev.avatar = u.avatar;
+        return { ...o, driverInfo: prev };
+    });
+}
+
 function rowToOrder(row) {
     if (!row) return null;
     return {
@@ -29,8 +72,107 @@ function rowToOrder(row) {
         driverInfo: row.driver_info,
         rating: row.rating,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        stockDeductedAt: row.stock_deducted_at
     };
+}
+
+/** MVP: one BOM for all pizzas; optional per-menu id rows later. Beverages use __default_beverage__ (usually empty). */
+const DEFAULT_PIZZA_RECIPE_KEY = '__default_pizza__';
+const DEFAULT_BEVERAGE_RECIPE_KEY = '__default_beverage__';
+
+async function fetchRecipeLinesForItem(supabase, menuProductId, isBeverage) {
+    if (isBeverage) {
+        const { data, error } = await supabase.from('product_stock_recipe').select('stock_product_id, quantity').eq('product_id', DEFAULT_BEVERAGE_RECIPE_KEY);
+        if (error) throw new Error(error.message);
+        return data || [];
+    }
+    const id = String(menuProductId ?? '');
+    const { data: specific, error: e1 } = await supabase.from('product_stock_recipe').select('stock_product_id, quantity').eq('product_id', id);
+    if (e1) throw new Error(e1.message);
+    if (specific?.length) return specific;
+    const { data: fallback, error: e2 } = await supabase.from('product_stock_recipe').select('stock_product_id, quantity').eq('product_id', DEFAULT_PIZZA_RECIPE_KEY);
+    if (e2) throw new Error(e2.message);
+    return fallback || [];
+}
+
+/**
+ * Decrement driver_stock for order lines (driver accept → preparing).
+ * @returns {{ ok: boolean, message?: string, deducted: { stockProductId: string, amount: number }[] }}
+ */
+async function applyStockDeductionForPreparingOrder(supabase, orderRow) {
+    const driverId = orderRow.driver_id ? String(orderRow.driver_id) : null;
+    if (!driverId) {
+        return { ok: false, message: 'Order has no driver assigned', deducted: [] };
+    }
+    const items = Array.isArray(orderRow.items) ? orderRow.items : [];
+    if (!items.length) {
+        return { ok: true, deducted: [] };
+    }
+
+    const totals = new Map();
+    for (const item of items) {
+        const lineQty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        const isBeverage = item.type === 'beverage';
+        const menuId = item.id ?? item.productId;
+        const lines = await fetchRecipeLinesForItem(supabase, menuId, isBeverage);
+        for (const line of lines) {
+            const pid = line.stock_product_id;
+            const q = Number(line.quantity) * lineQty;
+            if (!Number.isFinite(q) || q <= 0) continue;
+            totals.set(pid, (totals.get(pid) || 0) + q);
+        }
+    }
+
+    if (totals.size === 0) {
+        return { ok: true, deducted: [] };
+    }
+
+    const now = new Date().toISOString();
+    const deducted = [];
+
+    for (const [stockProductId, needRaw] of totals.entries()) {
+        const needInt = Math.max(1, Math.ceil(Number(needRaw)));
+        const { data: row, error: selErr } = await supabase.from('driver_stock').select('quantity').eq('driver_id', driverId).eq('product_id', stockProductId).maybeSingle();
+        if (selErr) {
+            return { ok: false, message: selErr.message || 'Failed to read driver stock', deducted };
+        }
+        const have = Number(row?.quantity ?? 0);
+        if (!row || have < needInt) {
+            await rollbackStockDeduction(supabase, driverId, deducted);
+            return {
+                ok: false,
+                message: `Insufficient stock (need ${needInt} of ingredient, have ${row ? have : 0}). Restock or check recipe.`,
+                deducted: []
+            };
+        }
+        const { error: upErr } = await supabase
+            .from('driver_stock')
+            .update({ quantity: have - needInt, updated_at: now })
+            .eq('driver_id', driverId)
+            .eq('product_id', stockProductId);
+        if (upErr) {
+            await rollbackStockDeduction(supabase, driverId, deducted);
+            return { ok: false, message: upErr.message || 'Failed to update driver stock', deducted: [] };
+        }
+        deducted.push({ stockProductId, amount: needInt });
+    }
+
+    return { ok: true, deducted };
+}
+
+async function rollbackStockDeduction(supabase, driverId, deducted) {
+    if (!driverId || !deducted?.length) return;
+    const now = new Date().toISOString();
+    for (const { stockProductId, amount } of deducted) {
+        const { data: row } = await supabase.from('driver_stock').select('quantity').eq('driver_id', driverId).eq('product_id', stockProductId).maybeSingle();
+        const have = Number(row?.quantity ?? 0);
+        await supabase
+            .from('driver_stock')
+            .update({ quantity: have + amount, updated_at: now })
+            .eq('driver_id', driverId)
+            .eq('product_id', stockProductId);
+    }
 }
 
 function orderToRow(order) {
@@ -127,7 +269,8 @@ export class OrdersApiService extends BaseApiService {
             const page = filters.page || 1;
             const limit = filters.limit || 10;
             const startIndex = (page - 1) * limit;
-            const paginatedOrders = orders.slice(startIndex, startIndex + limit);
+            let paginatedOrders = orders.slice(startIndex, startIndex + limit);
+            paginatedOrders = await enrichOrdersDriverInfoFromUsers(supabase, paginatedOrders);
             return this.createMockResponse({
                 orders: paginatedOrders,
                 total: orders.length,
@@ -161,7 +304,8 @@ export class OrdersApiService extends BaseApiService {
             if (error) {
                 return this.createMockError(error.message || 'Failed to fetch orders', error.code || 500);
             }
-            const orders = (rows || []).map(rowToOrder);
+            let orders = (rows || []).map(rowToOrder);
+            orders = await enrichOrdersDriverInfoFromUsers(supabase, orders);
             return this.createMockResponse({ orders, total: orders.length });
         }
         return await this.get(this.endpoint, filters);
@@ -177,7 +321,10 @@ export class OrdersApiService extends BaseApiService {
             if (error || !data) {
                 return this.createMockError('Order not found', 404);
             }
-            return this.createMockResponse({ order: rowToOrder(data) });
+            let order = rowToOrder(data);
+            const enriched = await enrichOrdersDriverInfoFromUsers(supabase, [order]);
+            order = enriched[0] || order;
+            return this.createMockResponse({ order });
         }
         return await this.get(`${this.endpoint}/${orderId}`);
     }
@@ -188,12 +335,54 @@ export class OrdersApiService extends BaseApiService {
             if (!supabase) {
                 return this.createMockError('Supabase not configured', 500);
             }
+
+            const { data: prev, error: fetchErr } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle();
+            if (fetchErr || !prev) {
+                return this.createMockError('Order not found', 404);
+            }
+
             const updates = { status, updated_at: new Date().toISOString(), ...additionalData };
             if (status === 'delivered') {
                 updates.delivery_time = updates.delivery_time || new Date().toISOString();
+                // Cashier walk-in + cash: payment collected on the spot; mark paid if still pending (caller may override).
+                if (!Object.prototype.hasOwnProperty.call(additionalData || {}, 'payment_status')) {
+                    const ps = prev.payment_status;
+                    if (isWalkInCashOrder(prev) && (!ps || ps === 'pending')) {
+                        updates.payment_status = 'paid';
+                    }
+                }
             }
+
+            /** Driver accept / offline sold: first transition to preparing or delivered deducts stock once (MVP: __default_pizza__ BOM). */
+            let rollbackDeduction = null;
+            if (!prev.stock_deducted_at && (status === 'preparing' || status === 'delivered')) {
+                if (!prev.driver_id) {
+                    return this.createMockError('Assign a driver before consuming stock', 400);
+                }
+
+                const allowedPrior =
+                    status === 'preparing' ? ['pending', 'assigned', 'preparing'] : ['pending', 'assigned', 'preparing', 'on_delivery'];
+                if (!allowedPrior.includes(prev.status)) {
+                    return this.createMockError(`Invalid transition to ${status}`, 400);
+                }
+
+                try {
+                    const dres = await applyStockDeductionForPreparingOrder(supabase, prev);
+                    if (!dres.ok) {
+                        return this.createMockError(dres.message || 'Stock deduction failed', 400);
+                    }
+                    rollbackDeduction = { driverId: String(prev.driver_id), deducted: dres.deducted };
+                    updates.stock_deducted_at = new Date().toISOString();
+                } catch (e) {
+                    return this.createMockError(e?.message || 'Stock deduction failed', 500);
+                }
+            }
+
             const { data, error } = await supabase.from('orders').update(updates).eq('id', orderId).select().single();
             if (error) {
+                if (rollbackDeduction?.deducted?.length) {
+                    await rollbackStockDeduction(supabase, rollbackDeduction.driverId, rollbackDeduction.deducted);
+                }
                 return this.createMockError(error.message || 'Failed to update order', error.code || 500);
             }
             return this.createMockResponse({ order: rowToOrder(data), message: `Order status updated to ${status}` });
@@ -212,7 +401,7 @@ export class OrdersApiService extends BaseApiService {
                 .update({
                     driver_id: driverId,
                     driver_info: driverInfo,
-                status: 'assigned',
+                    status: 'assigned',
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', orderId)
@@ -316,13 +505,14 @@ export class OrdersApiService extends BaseApiService {
             if (!supabase) {
                 return this.createMockError('Supabase not configured', 500);
             }
-            let query = supabase.from('orders').select('*').eq('driver_id', driverId);
+            let query = supabase.from('orders').select('*').eq('driver_id', String(driverId));
             if (status) query = query.eq('status', status);
             const { data: rows, error } = await query.order('order_date', { ascending: false });
             if (error) {
                 return this.createMockError(error.message || 'Failed to fetch driver orders', error.code || 500);
             }
-            const orders = (rows || []).map(rowToOrder);
+            let orders = (rows || []).map(rowToOrder);
+            orders = await enrichOrdersDriverInfoFromUsers(supabase, orders);
             return this.createMockResponse({ orders, total: orders.length });
         }
         return await this.get(`${this.endpoint}/driver/${driverId}`, { status });
