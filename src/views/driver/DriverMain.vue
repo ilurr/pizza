@@ -3,6 +3,7 @@ import DriverEndOfDayStockConfirmModal from '@/components/driver/DriverEndOfDayS
 import OrderDetailDialog from '@/components/shared/OrderDetailDialog.vue';
 import UserAvatar from '@/components/shared/UserAvatar.vue';
 import { useDriverDailyCloseDay } from '@/composables/useDriverDailyCloseDay.js';
+import { useDriverMorningStockPrompt } from '@/composables/useDriverMorningStockPrompt.js';
 import api from '@/services/api/index.js';
 import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
@@ -12,6 +13,7 @@ import { useRouter } from 'vue-router';
 
 const driverStore = useDriverStore();
 const userStore = useUserStore();
+const morningStockPrompt = useDriverMorningStockPrompt();
 const toast = useToast();
 const router = useRouter();
 
@@ -150,6 +152,7 @@ const onCloseDayConfirmed = async () => {
 
 // Methods
 const toggleOnlineStatus = async () => {
+    const wasOffline = !driverStore.isOnline;
     const result = await driverStore.toggleOnlineStatus();
     if (!result.success) {
         toast.add({
@@ -168,6 +171,9 @@ const toggleOnlineStatus = async () => {
             detail: 'You will start receiving order requests',
             life: 3000
         });
+        if (wasOffline) {
+            await morningStockPrompt.promptIfUnconfirmedForToday();
+        }
     } else {
         toast.add({
             severity: 'info',

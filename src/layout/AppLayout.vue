@@ -6,7 +6,8 @@ import { useLayout } from '@/layout/composables/layout';
 import api from '@/services/api/index.js';
 import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { DRIVER_MORNING_STOCK_PROMPT_KEY } from '@/composables/useDriverMorningStockPrompt.js';
+import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppFooter from './AppFooter.vue';
 import AppSidebar from './AppSidebar.vue';
@@ -70,6 +71,10 @@ async function evaluateMorningStockCheck() {
     }
     morningCheckVisible.value = true;
 }
+
+provide(DRIVER_MORNING_STOCK_PROMPT_KEY, {
+    promptIfUnconfirmedForToday: evaluateMorningStockCheck
+});
 
 // Use simple page-header (back + title) for driver sub-pages, same pattern as user/buyer
 const driverPageHeader = computed(() => {

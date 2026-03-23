@@ -3,10 +3,12 @@ import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
+import { useDriverMorningStockPrompt } from '@/composables/useDriverMorningStockPrompt.js';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const driverStore = useDriverStore();
 const userStore = useUserStore();
+const morningStockPrompt = useDriverMorningStockPrompt();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -38,6 +40,7 @@ const todayEarnings = computed(() => {
 
 // Methods
 const toggleOnlineStatus = async () => {
+    const wasOffline = !driverStore.isOnline;
     const result = await driverStore.toggleOnlineStatus();
     if (!result.success) {
         toast.add({
@@ -56,6 +59,9 @@ const toggleOnlineStatus = async () => {
             detail: 'You will start receiving order requests',
             life: 3000
         });
+        if (wasOffline) {
+            await morningStockPrompt.promptIfUnconfirmedForToday();
+        }
     } else {
         toast.add({
             severity: 'info',
@@ -66,7 +72,7 @@ const toggleOnlineStatus = async () => {
     }
 };
 
-const toggleAvailability = () => {
+const toggleAvailability = async () => {
     if (!driverStore.isOnline) {
         toast.add({
             severity: 'warn',
@@ -77,7 +83,11 @@ const toggleAvailability = () => {
         return;
     }
 
+    const wasBusy = !driverStore.isAvailable;
     driverStore.toggleAvailability();
+    if (wasBusy && driverStore.isAvailable) {
+        await morningStockPrompt.promptIfUnconfirmedForToday();
+    }
     toast.add({
         severity: 'info',
         summary: `You are now ${driverStore.isAvailable ? 'available' : 'busy'}`,

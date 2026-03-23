@@ -4,33 +4,72 @@ import { getSupabaseClient } from '@/services/supabase/client.js';
 
 const GUEST_WALKIN_CUSTOMER_ID = 'guest_user';
 
+/** Instant that defines which *local* calendar day a delivered order counts toward (matches morning stock / stock_date). */
+function earningsAttributionInstant(row) {
+    return row.delivery_time || row.order_date;
+}
+
 /**
  * Real sales live in `orders`. `driver_daily_deposits` is an optional manual ledger and is often empty.
  * Aggregate delivered orders for this driver in [rangeStart, rangeEnd] into report + per-product/day rows.
+ *
+ * Bounds are local-day instants (from the client). Rows are included when **delivery_time** falls in range;
+ * legacy rows without **delivery_time** fall back to **order_date** in range (same instants).
  */
 async function aggregateDriverEarningsFromOrders(supabase, tableDriverId, rangeStart, rangeEnd) {
-    const { data: orderRows, error } = await supabase
+    const rangeStartIso = rangeStart.toISOString();
+    const rangeEndIso = rangeEnd.toISOString();
+    const selectCols = 'id, order_date, delivery_time, customer_id, payment_method, total, items, status';
+
+    const { data: byDeliveryTime, error: errDelivered } = await supabase
         .from('orders')
-        .select('order_date, customer_id, payment_method, total, items, status')
+        .select(selectCols)
         .eq('driver_id', String(tableDriverId))
         .eq('status', 'delivered')
-        .gte('order_date', rangeStart.toISOString())
-        .lte('order_date', rangeEnd.toISOString());
+        .gte('delivery_time', rangeStartIso)
+        .lte('delivery_time', rangeEndIso);
 
-    if (error) {
-        return { error, report: { totalSoldItems: 0, totalEarnings: 0 }, dailyDeposits: [] };
+    if (errDelivered) {
+        return { error: errDelivered, report: { totalSoldItems: 0, totalEarnings: 0 }, dailyDeposits: [] };
+    }
+
+    const { data: legacyNoDeliveryTs, error: errLegacy } = await supabase
+        .from('orders')
+        .select(selectCols)
+        .eq('driver_id', String(tableDriverId))
+        .eq('status', 'delivered')
+        .is('delivery_time', null)
+        .gte('order_date', rangeStartIso)
+        .lte('order_date', rangeEndIso);
+
+    if (errLegacy) {
+        return { error: errLegacy, report: { totalSoldItems: 0, totalEarnings: 0 }, dailyDeposits: [] };
+    }
+
+    const seen = new Set();
+    const orderRows = [];
+    for (const row of byDeliveryTime || []) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        orderRows.push(row);
+    }
+    for (const row of legacyNoDeliveryTs || []) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        orderRows.push(row);
     }
 
     const map = new Map();
     let totalEarnings = 0;
     let totalSoldItems = 0;
 
-    for (const row of orderRows || []) {
+    for (const row of orderRows) {
         totalEarnings += Number(row.total || 0);
         const items = Array.isArray(row.items) ? row.items : [];
         const isWalkIn = String(row.customer_id || '') === GUEST_WALKIN_CUSTOMER_ID;
         const pm = String(row.payment_method || '').toLowerCase();
-        const orderDay = row.order_date ? new Date(row.order_date).toLocaleDateString('en-CA') : '';
+        const att = earningsAttributionInstant(row);
+        const orderDay = att ? new Date(att).toLocaleDateString('en-CA') : '';
 
         for (const it of items) {
             const qty = Math.max(0, Math.floor(Number(it.quantity) || 0));
@@ -813,8 +852,9 @@ export class DriverApiService extends BaseApiService {
             }
             const rangeStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
             const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-            const startStr = rangeStart.toISOString().slice(0, 10);
-            const endStr = rangeEnd.toISOString().slice(0, 10);
+            // Calendar dates in the user's locale (same as morning stock stock_date), not UTC from toISOString().slice(0,10)
+            const startStr = rangeStart.toLocaleDateString('en-CA');
+            const endStr = rangeEnd.toLocaleDateString('en-CA');
 
             const tableDriverId = await this._driverIdForTables(supabase, driverId);
 
