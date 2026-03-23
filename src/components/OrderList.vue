@@ -65,23 +65,33 @@ const formatTime = (dateString: string) => {
 	});
 };
 
+const formatIdr = (value: unknown) => {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return '0';
+	return n.toLocaleString('id-ID');
+};
+
+/** Live map / “track chef” once someone has accepted the order. */
+const canLiveTrackChef = (status: string) => {
+	return ['assigned', 'preparing', 'on_delivery'].includes(status);
+};
+
+const isPendingForCustomer = (status: string) => {
+	return status === 'pending' || status === 'confirmed';
+};
+
 const openTracking = (order: any) => {
 	selectedOrder.value = order;
 	trackingModalVisible.value = true;
 };
 
-const canTrackOrder = (status: string) => {
-	return ['pending', 'assigned', 'preparing', 'on_delivery'].includes(status);
+/** Customer can open status / tracking modal for these (incl. pending = waiting for chef). */
+const canViewOrderModal = (status: string) => {
+	return ['pending', 'confirmed', 'assigned', 'preparing', 'on_delivery', 'delivered', 'cancelled'].includes(status);
 };
 
 const handleCardClick = (order: any) => {
-	// For trackable orders, open tracking modal
-	if (canTrackOrder(order.status)) {
-		openTracking(order);
-	}
-	// For non-trackable orders, we could add other actions like viewing details
-	// For now, we'll just open the tracking modal for all orders
-	else {
+	if (canViewOrderModal(order.status)) {
 		openTracking(order);
 	}
 };
@@ -119,17 +129,24 @@ const handleCardClick = (order: any) => {
 						<p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ formatDate(order.orderDate) }} • {{
 							formatTime(order.orderDate) }}</p>
 						<p class="text-sm text-gray-500 dark:text-gray-400">
-							{{ order.items.length }} item(s) • {{ order.paymentMethod }}
+							{{ (order.items || []).length }} item(s) • {{ order.paymentMethod || '—' }}
+						</p>
+						<p v-if="showTracking && isPendingForCustomer(order.status)"
+							class="text-xs text-amber-700 dark:text-amber-300 mb-0 mt-1">
+							Waiting for a chef to accept
 						</p>
 					</div>
 					<div class="text-right">
 						<!-- <span :class="getStatusColor(order.status)" class="px-2 py-1 rounded-full text-xs font-medium">
 							{{ order.status }}
 						</span> -->
-						<p class="font-bold text-base text-gray-900 mb-2">Rp{{ order.total.toLocaleString('id-ID') }}</p>
-						<!-- On-progress tracking CTA -->
-						<Button v-if="showTracking && canTrackOrder(order.status)" label="Track your Chef" rounded size="small"
+						<p class="font-bold text-base text-gray-900 dark:text-white mb-2">Rp{{ formatIdr(order.total) }}</p>
+						<!-- Live tracking only after chef assigned -->
+						<Button v-if="showTracking && canLiveTrackChef(order.status)" label="Track your Chef" rounded size="small"
 							icon="pi pi-map-marker" iconPos="left" severity="success" @click.stop="openTracking(order)" />
+						<Button v-else-if="showTracking && isPendingForCustomer(order.status)" label="View status" rounded
+							size="small" icon="pi pi-clock" iconPos="left" severity="warn" outlined
+							@click.stop="openTracking(order)" />
 						<!-- History rating CTA: button (not yet rated) -->
 						<Button v-else-if="!showTracking && order.status === 'delivered' && !hasRating(order)" label="Add Rating"
 							severity="primary" icon="pi pi-star" iconPos="left" rounded size="small"

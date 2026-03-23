@@ -11,7 +11,7 @@ function isWalkInCashOrder(row) {
 
 /**
  * Admin list + detail read `driverInfo` from `orders.driver_info` (JSON). Walk-in and some flows only set `driver_id`.
- * Merge display fields from `app_users` when name is missing so UIs don't show "—".
+ * Merge display fields from `app_users` when name or phone is missing so UIs (e.g. WhatsApp) work.
  */
 async function enrichOrdersDriverInfoFromUsers(supabase, orders) {
     if (!Array.isArray(orders) || !orders.length || !supabase) return orders;
@@ -21,7 +21,8 @@ async function enrichOrdersDriverInfoFromUsers(supabase, orders) {
         if (o.driverId == null || String(o.driverId) === '') continue;
         const di = o.driverInfo;
         const hasName = di && typeof di === 'object' && String(di.name || '').trim() !== '';
-        if (!hasName) idsToFetch.add(String(o.driverId));
+        const hasPhone = di && typeof di === 'object' && String(di.phone || '').trim() !== '';
+        if (!hasName || !hasPhone) idsToFetch.add(String(o.driverId));
     }
     if (!idsToFetch.size) return orders;
 
@@ -161,6 +162,48 @@ async function applyStockDeductionForPreparingOrder(supabase, orderRow) {
     return { ok: true, deducted };
 }
 
+/**
+ * When an order is cancelled after stock was deducted (preparing+), add BOM quantities back to driver_stock.
+ */
+async function restoreStockForCancelledOrder(supabase, orderRow) {
+    const driverId = orderRow.driver_id ? String(orderRow.driver_id) : null;
+    if (!driverId) return { ok: true };
+    const items = Array.isArray(orderRow.items) ? orderRow.items : [];
+    const totals = new Map();
+    for (const item of items) {
+        const lineQty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        const isBeverage = item.type === 'beverage';
+        const menuId = item.id ?? item.productId;
+        const lines = await fetchRecipeLinesForItem(supabase, menuId, isBeverage);
+        for (const line of lines) {
+            const pid = line.stock_product_id;
+            const q = Number(line.quantity) * lineQty;
+            if (!Number.isFinite(q) || q <= 0) continue;
+            totals.set(pid, (totals.get(pid) || 0) + q);
+        }
+    }
+    if (totals.size === 0) return { ok: true };
+
+    const now = new Date().toISOString();
+    for (const [stockProductId, needRaw] of totals.entries()) {
+        const needInt = Math.max(1, Math.ceil(Number(needRaw)));
+        const { data: row, error: selErr } = await supabase.from('driver_stock').select('quantity').eq('driver_id', driverId).eq('product_id', stockProductId).maybeSingle();
+        if (selErr) {
+            return { ok: false, message: selErr.message || 'Failed to read driver stock' };
+        }
+        const have = Number(row?.quantity ?? 0);
+        const { error: upErr } = await supabase
+            .from('driver_stock')
+            .update({ quantity: have + needInt, updated_at: now })
+            .eq('driver_id', driverId)
+            .eq('product_id', stockProductId);
+        if (upErr) {
+            return { ok: false, message: upErr.message || 'Failed to restore driver stock' };
+        }
+    }
+    return { ok: true };
+}
+
 async function rollbackStockDeduction(supabase, driverId, deducted) {
     if (!driverId || !deducted?.length) return;
     const now = new Date().toISOString();
@@ -257,7 +300,9 @@ export class OrdersApiService extends BaseApiService {
             if (!supabase) {
                 return this.createMockError('Supabase not configured', 500);
             }
-            let query = supabase.from('orders').select('*').or(`customer_id.eq.${userId},customer_id.eq.guest_user`).order('order_date', { ascending: false });
+            // Only this customer's rows. Do NOT OR with guest_user — that would show every walk-in order to every logged-in user.
+            const uid = String(userId ?? 'guest_user');
+            let query = supabase.from('orders').select('*').eq('customer_id', uid).order('order_date', { ascending: false });
             if (filters.status) query = query.eq('status', filters.status);
             if (filters.dateFrom) query = query.gte('order_date', filters.dateFrom);
             if (filters.dateTo) query = query.lte('order_date', filters.dateTo);
@@ -342,6 +387,15 @@ export class OrdersApiService extends BaseApiService {
             }
 
             const updates = { status, updated_at: new Date().toISOString(), ...additionalData };
+
+            if (status === 'cancelled' && prev.stock_deducted_at && prev.driver_id) {
+                const restoreRes = await restoreStockForCancelledOrder(supabase, prev);
+                if (!restoreRes.ok) {
+                    return this.createMockError(restoreRes.message || 'Failed to restore stock on cancel', 500);
+                }
+                updates.stock_deducted_at = null;
+            }
+
             if (status === 'delivered') {
                 updates.delivery_time = updates.delivery_time || new Date().toISOString();
                 // Cashier walk-in + cash: payment collected on the spot; mark paid if still pending (caller may override).
@@ -447,7 +501,8 @@ export class OrdersApiService extends BaseApiService {
             if (['delivered', 'cancelled'].includes(order.status)) {
                 return this.createMockError('Order cannot be cancelled', 400);
             }
-            return this.updateOrderStatus(orderId, 'cancelled', { cancellation_reason: reason });
+            const extra = reason ? { cancellation_reason: reason } : {};
+            return this.updateOrderStatus(orderId, 'cancelled', extra);
         }
         return await this.patch(`${this.endpoint}/${orderId}/cancel`, { reason });
     }
@@ -516,6 +571,53 @@ export class OrdersApiService extends BaseApiService {
             return this.createMockResponse({ orders, total: orders.length });
         }
         return await this.get(`${this.endpoint}/driver/${driverId}`, { status });
+    }
+
+    /**
+     * Walk-in cashier orders only (`customer_id` = guest_user). Switch cash ↔ QRIS if customer changes mind after sale.
+     * Persists `payment_method` as `cash` or `QRIS` (same as DriverOfflineOrder).
+     */
+    async updateWalkInPaymentMethod(orderId, paymentMethod) {
+        const raw = String(paymentMethod || '').toLowerCase();
+        const method = raw === 'qris' ? 'QRIS' : raw === 'cash' ? 'cash' : null;
+        if (!method) {
+            return this.createMockError('Payment method must be cash or QRIS', 400);
+        }
+
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
+
+            const { data: prev, error: fetchErr } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle();
+            if (fetchErr || !prev) {
+                return this.createMockError('Order not found', 404);
+            }
+            if (String(prev.customer_id || '') !== 'guest_user') {
+                return this.createMockError('Only walk-in cashier orders can change payment method here', 400);
+            }
+
+            const { data, error } = await supabase
+                .from('orders')
+                .update({
+                    payment_method: method,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (error) {
+                return this.createMockError(error.message || 'Failed to update payment method', error.code || 500);
+            }
+            let order = rowToOrder(data);
+            const enriched = await enrichOrdersDriverInfoFromUsers(supabase, [order]);
+            order = enriched[0] || order;
+            return this.createMockResponse({ order, message: 'Payment method updated' });
+        }
+
+        return await this.patch(`${this.endpoint}/${orderId}/payment-method`, { paymentMethod: method });
     }
 }
 

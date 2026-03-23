@@ -163,7 +163,8 @@ onMounted(async () => {
             <div class="flex flex-col gap-2 mb-4">
                 <div class="text-2xl font-semibold">Recipes (Stock BOM)</div>
                 <div class="text-sm text-surface-500">
-                    Map one portion of each product to ingredients (<code>stock_products</code>) for stock deduction when an
+                    Map one portion of each product to ingredients (<code>stock_products</code>) for stock deduction
+                    when an
                     order moves to <strong>preparing</strong> (driver accepts) or walk-in is completed as delivered.
                 </div>
             </div>
@@ -171,8 +172,8 @@ onMounted(async () => {
             <div class="grid grid-cols-12 gap-4 mb-4">
                 <div class="col-span-12 md:col-span-6">
                     <label class="block text-sm font-medium mb-2">Product (BOM)</label>
-                    <Select v-model="selectedProductId" :options="productOptions" optionLabel="label" optionValue="value"
-                        class="w-full" />
+                    <Select v-model="selectedProductId" :options="productOptions" optionLabel="label"
+                        optionValue="value" class="w-full" />
                 </div>
                 <div class="col-span-12 md:col-span-6 flex items-end justify-end gap-2">
                     <Button label="Save Recipe" icon="pi pi-save" :loading="saving" :disabled="!canManage"
@@ -184,21 +185,16 @@ onMounted(async () => {
                 <div class="flex flex-wrap gap-3 items-end">
                     <div class="min-w-[260px]">
                         <label class="block text-sm font-medium mb-2">Add ingredient</label>
-                        <Select
-                            v-model="selectedIngredientId"
-                            :options="ingredientOptions"
-                            optionLabel="label"
-                            optionValue="value"
-                            placeholder="Select base / topping"
-                            class="w-full"
-                            :disabled="!canManage"
-                        />
+                        <Select v-model="selectedIngredientId" :options="ingredientOptions" optionLabel="label"
+                            optionValue="value" placeholder="Select base / topping" class="w-full"
+                            :disabled="!canManage" />
                     </div>
                     <div class="w-[160px]">
                         <label class="block text-sm font-medium mb-2">Quantity per 1 portion</label>
-                        <InputNumber v-model="selectedIngredientQuantity" :min="0" :step="1" :disabled="!canManage" class="w-full" />
+                        <InputNumber v-model="selectedIngredientQuantity" :min="0" :step="1" :disabled="!canManage"
+                            class="w-full" />
                     </div>
-                    <div class="pb-2">
+                    <div class="relative">
                         <Button label="Add / Update" icon="pi pi-plus" :disabled="!canManage" @click="addRecipeLine" />
                     </div>
                 </div>
@@ -208,32 +204,24 @@ onMounted(async () => {
                 <Column header="Ingredient">
                     <template #body="{ data }">
                         <div class="font-semibold">{{ data.stockProduct?.name || '—' }}</div>
-                        <div class="text-xs text-surface-500">{{ data.stockProduct?.type || '—' }} · {{ data.stockProduct?.unit || '' }}</div>
+                        <div class="text-xs text-surface-500">{{ data.stockProduct?.type || '—' }} · {{
+                            data.stockProduct?.unit || '' }}</div>
                     </template>
                 </Column>
                 <Column header="Quantity (per portion)" style="width: 240px">
                     <template #body="{ data }">
-                        <InputNumber
-                            v-model="data.quantity"
-                            :min="0"
-                            :step="1"
-                            :disabled="!canManage"
-                            class="w-full"
-                        />
+                        <InputNumber v-model="data.quantity" :min="0" :step="1" :disabled="!canManage" class="w-full" />
                     </template>
                 </Column>
                 <Column header="Actions" style="width: 120px">
                     <template #body="{ data }">
-                        <Button icon="pi pi-trash" severity="danger" text rounded :disabled="!canManage" @click="removeRecipeLine(data.stockProductId)" />
+                        <span v-tooltip.top="canManage ? 'Remove from recipe' : 'Editing disabled'" class="inline-flex">
+                            <Button icon="pi pi-trash" severity="danger" text rounded :disabled="!canManage"
+                                @click="removeRecipeLine(data.stockProductId)" />
+                        </span>
                     </template>
                 </Column>
             </DataTable>
-
-            <div class="text-sm text-surface-500 mt-4">
-                MVP note: each menu product can have its own BOM by <strong>product_id</strong>. Custom toppings do not yet
-                change recipe calculation.
-            </div>
         </div>
     </div>
 </template>
-

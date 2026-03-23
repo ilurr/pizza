@@ -81,9 +81,14 @@ const loadUserOrders = async () => {
 			await userStore.fetchUser();
 		}
 
-		// Use ProductService facade (API under the hood) with user-specific id when available
-		const userId = userStore.user?.id ?? 'guest_user';
-		const orders = await ProductService.getOrders(userId);
+		// Only fetch orders for this account — never mix in guest_user / walk-in orders
+		const userId = userStore.user?.id;
+		if (userId == null || String(userId) === '') {
+			orderHistory.value = [];
+			onProgressOrders.value = [];
+			return;
+		}
+		const orders = await ProductService.getOrders(String(userId));
 
 		// Filter orders for history (delivered, cancelled)
 		orderHistory.value = orders.filter(order =>

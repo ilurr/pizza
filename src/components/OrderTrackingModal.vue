@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import api from '@/services/api/index.js';
 import StarRating from '@/components/StarRating.vue';
 import { useLeaflet } from '@/composables/useLeaflet';
 import { useTrackingService } from '@/composables/useTrackingService';
+import api from '@/services/api/index.js';
 import { useOrderStore } from '@/stores/orderStore.js';
 import { computed, onUnmounted, ref, watch } from 'vue';
 
@@ -60,13 +60,32 @@ const isVisible = computed({
 	set: (value) => emit('update:visible', value)
 });
 
-const orderCanBeTracked = computed(() => {
-	const status = tracking.value?.currentStatus || currentOrder.value?.status;
-	return ['pending', 'assigned', 'preparing', 'on_delivery'].includes(status);
+/** Status from order row first (accurate before tracking loads), then tracking API. */
+const customerOrderStatus = computed(() => {
+	return (currentOrder.value?.status || tracking.value?.currentStatus || '') as string;
 });
 
-const formatDate = (dateString: string) => {
-	return new Date(dateString).toLocaleDateString('id-ID', {
+/** Live map + “chef on the way” only after a chef is assigned. */
+const showLiveTrackingMap = computed(() => {
+	return ['assigned', 'preparing', 'on_delivery'].includes(customerOrderStatus.value);
+});
+
+/** Waiting for driver acceptance — no map, clear customer messaging. */
+const isOrderPendingForCustomer = computed(() => {
+	return ['pending', 'confirmed'].includes(customerOrderStatus.value);
+});
+
+const modalTitle = computed(() => {
+	if (showLiveTrackingMap.value) return 'Track Your Order';
+	if (isOrderPendingForCustomer.value) return 'Order Status';
+	return 'Order Details';
+});
+
+const formatDate = (dateString: string | null | undefined) => {
+	if (dateString == null || dateString === '') return '—';
+	const d = new Date(dateString);
+	if (Number.isNaN(d.getTime())) return '—';
+	return d.toLocaleDateString('id-ID', {
 		weekday: 'long',
 		year: 'numeric',
 		month: 'long',
@@ -74,40 +93,123 @@ const formatDate = (dateString: string) => {
 	});
 };
 
-const formatTime = (dateString: string) => {
-	return new Date(dateString).toLocaleTimeString('id-ID', {
+const formatTime = (dateString: string | null | undefined) => {
+	if (dateString == null || dateString === '') return '—';
+	const d = new Date(dateString);
+	if (Number.isNaN(d.getTime())) return '—';
+	return d.toLocaleTimeString('id-ID', {
 		hour: '2-digit',
 		minute: '2-digit'
 	});
+};
+
+/** Safe IDR display — avoids .toLocaleString on undefined (e.g. pending order / partial API shape). */
+const formatIdr = (value: unknown) => {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return '0';
+	return n.toLocaleString('id-ID');
+};
+
+/** Line total when API omits `item.total` (common on fresh orders). */
+const itemLineTotal = (item: { total?: unknown; price?: unknown; quantity?: unknown }) => {
+	if (item?.total != null && Number.isFinite(Number(item.total))) return Number(item.total);
+	const q = Math.max(0, Number(item?.quantity ?? 0));
+	const p = Number(item?.price ?? 0);
+	return Number.isFinite(p) ? q * p : 0;
 };
 
 const currentOrder = computed(() => {
 	return props.order || null;
 });
 
+/** Read phone from driverInfo objects (string/number; alternate keys). */
+const driverInfoPhoneFrom = (obj: Record<string, unknown> | null | undefined): string => {
+	if (!obj || typeof obj !== 'object') return '';
+	const keys = ['phone', 'phoneNumber', 'mobile', 'whatsapp', 'tel'] as const;
+	for (const k of keys) {
+		const v = obj[k];
+		if (v == null) continue;
+		const s = String(v).trim();
+		if (s !== '') return s;
+	}
+	return '';
+};
+
 const driverInfo = computed(() => {
-	// Prefer driver info from tracking (Supabase orders.driver_info)
-	if (tracking.value?.driverInfo) {
-		return tracking.value.driverInfo;
-	}
+	const trackDi =
+		tracking.value?.driverInfo && typeof tracking.value.driverInfo === 'object'
+			? (tracking.value.driverInfo as Record<string, unknown>)
+			: null;
+	const orderDi =
+		currentOrder.value?.driverInfo && typeof currentOrder.value.driverInfo === 'object'
+			? (currentOrder.value.driverInfo as Record<string, unknown>)
+			: null;
 
-	// Fallback: driver data from order (if any)
-	if (currentOrder.value?.driverInfo) {
-		return currentOrder.value.driverInfo;
-	}
-
-	// Fallback: driver selected during ordering
-	if (orderStore.selectedDriver) {
-		return {
+	let raw: Record<string, unknown> | null = null;
+	if (trackDi || orderDi) {
+		// Merge so tracking wins for name/avatar, but phone can come from order if tracking omits it
+		raw = { ...(orderDi || {}), ...(trackDi || {}) };
+		const phone = driverInfoPhoneFrom(trackDi) || driverInfoPhoneFrom(orderDi);
+		if (phone) raw = { ...raw, phone };
+	} else if (orderStore.selectedDriver) {
+		raw = {
 			name: orderStore.selectedDriver.name,
 			avatar: orderStore.selectedDriver.avatar,
 			phone: orderStore.selectedDriver.phone,
 			rating: orderStore.selectedDriver.rating
 		};
 	}
-
-	return null;
+	return {
+		name:
+			raw?.name != null && String(raw.name).trim() !== ''
+				? String(raw.name)
+				: 'Chef will be assigned shortly',
+		avatar: raw?.avatar != null ? String(raw.avatar) : '',
+		phone: raw ? driverInfoPhoneFrom(raw) : '',
+		rating: raw?.rating ?? null
+	};
 });
+
+/** Digits only for wa.me (Indonesia: 08… → 62…). */
+const normalizeWhatsappPhone = (raw: string | number | null | undefined): string | null => {
+	if (raw == null) return null;
+	const str = String(raw).trim();
+	if (str === '') return null;
+	let d = str.replace(/\D/g, '');
+	if (!d) return null;
+	if (d.startsWith('62')) return d;
+	if (d.startsWith('0')) return `62${d.slice(1)}`;
+	// Local mobile without leading 0 (uncommon)
+	if (d.length >= 9 && d.length <= 11) return `62${d}`;
+	return d;
+};
+
+const orderLabelForChefChat = computed(() => {
+	const o = currentOrder.value;
+	if (!o) return 'pesanan ini';
+	const num = o.orderNumber != null && String(o.orderNumber).trim() !== '' ? String(o.orderNumber).trim() : '';
+	if (num) return num;
+	if (o.id != null && String(o.id).trim() !== '') return `#${String(o.id)}`;
+	return 'pesanan ini';
+});
+
+/** Prefilled WA text — customer double-checks status with assigned chef. */
+const chefWhatsappMessage = computed(() => {
+	const label = orderLabelForChefChat.value;
+	return `Hi chef, saya order ${label}. Mohon bantu cek status pesanan saya dan konfirmasi, ya. Terima kasih.`;
+});
+
+const canChatChefOnWhatsApp = computed(() => normalizeWhatsappPhone(driverInfo.value.phone) != null);
+
+const openChefWhatsApp = () => {
+	const phone = normalizeWhatsappPhone(driverInfo.value.phone);
+	if (!phone) return;
+	const url = `https://wa.me/${phone}?text=${encodeURIComponent(chefWhatsappMessage.value)}`;
+	window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+const chefWhatsappDisabledHint =
+	'Nomor chef belum tersedia. Refresh status setelah chef ditugaskan, lalu coba lagi.';
 
 const estimatedArrival = computed(() => {
 	const eta = tracking.value?.estimatedDelivery;
@@ -182,7 +284,7 @@ const addDriverMarker = async () => {
 
 	const driverMarker = await addMarker(map.value, driverPosition.value.lat, driverPosition.value.lng, {
 		icon: await createDriverMarkerIcon(),
-		popup: `Driver: ${driverInfo.value.name}`
+		popup: `Driver: ${driverInfo.value?.name ?? 'Driver'}`
 	});
 
 	// Fit map to show both markers
@@ -286,7 +388,7 @@ watch(
 			selectedFoodRating.value = foodScore(props.order);
 			selectedDriverRating.value = driverScore(props.order);
 			loadTracking();
-			if (orderCanBeTracked.value) {
+			if (showLiveTrackingMap.value) {
 				setTimeout(() => {
 					initializeMap();
 				}, 300); // Wait for modal to render
@@ -318,9 +420,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<Dialog v-model:visible="isVisible" modal :header="orderCanBeTracked ? 'Track Your Order' : 'Order Details'"
-		:style="{ width: '90vw', maxWidth: '600px' }" class="order-tracking-modal dialog-flex-end" :closable="true"
-		position="center">
+	<Dialog v-model:visible="isVisible" modal :header="modalTitle" :style="{ width: '90vw', maxWidth: '600px' }"
+		class="order-tracking-modal dialog-flex-end" :closable="true" position="center">
 
 		<div v-if="!currentOrder" class="text-center p-6">
 			<i class="pi pi-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
@@ -342,8 +443,8 @@ onUnmounted(() => {
 				<p class="font-bold text-lg text-green-600 mt-2">Total: Rp{{ order.total.toLocaleString('id-ID') }}</p>
 			</div> -->
 
-			<!-- Tracking Section (only for trackable orders) -->
-			<div v-if="orderCanBeTracked">
+			<!-- Live tracking: only after a chef is assigned -->
+			<div v-if="showLiveTrackingMap">
 				<!-- <h4 class="font-semibold text-lg mb-3 text-gray-800 dark:text-white">Live Tracking</h4> -->
 
 				<!-- Driver Info -->
@@ -373,13 +474,11 @@ onUnmounted(() => {
 						</div>
 						<!-- <Button icon="pi pi-phone" text size="small" severity="success" :onclick="`tel:${driverInfo.phone}`" /> -->
 					</div>
-					<div class="flex items-center gap-3 mt-4 pt-4 border-t">
+					<div class="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t">
 						<div class="flex-1">
 							<p v-if="estimatedArrival" class="font-sm text-sm mb-1">
 								Your chef is on the way! Estimated arrival:
-								<span
-									class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold"
-								>
+								<span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
 									{{ estimatedArrival.time }} ({{ estimatedArrival.minutes }} mins)
 								</span>
 							</p>
@@ -387,26 +486,12 @@ onUnmounted(() => {
 								Your chef is on the way. Estimated time will appear here once available.
 							</p>
 						</div>
-						<Button
-							v-if="driverInfo?.phone"
-							icon="pi pi-phone"
-							rounded
-							size="small"
-							severity="success"
-							:onclick="`tel:${driverInfo.phone}`"
-							label="Call"
-							title="Call driver"
-						/>
-						<Button
-							icon="pi pi-refresh"
-							outlined
-							rounded
-							size="small"
-							@click="refreshTracking"
-							:loading="refreshing || trackingLoading"
-							label="Refresh"
-							title="Refresh tracking"
-						/>
+						<Button icon="pi pi-whatsapp" severity="success" rounded size="small" label="Chat the Driver"
+							:disabled="!canChatChefOnWhatsApp"
+							:title="canChatChefOnWhatsApp ? 'Chat chef on WhatsApp' : chefWhatsappDisabledHint"
+							@click="openChefWhatsApp" />
+						<Button icon="pi pi-refresh" outlined rounded size="small" @click="refreshTracking"
+							:loading="refreshing || trackingLoading" label="Refresh" title="Refresh tracking" />
 					</div>
 				</div>
 
@@ -460,26 +545,45 @@ onUnmounted(() => {
 				</div> -->
 			</div>
 
-			<!-- Status Info for Non-Trackable Orders -->
+			<!-- Pending / confirmed: waiting for a chef (no live map yet) -->
+			<div v-else-if="isOrderPendingForCustomer"
+				class="mb-4 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+				<div class="flex items-center gap-2 mb-2">
+					<i class="pi pi-clock text-amber-600 dark:text-amber-400"></i>
+					<span class="font-medium text-amber-900 dark:text-amber-100">Waiting for a chef</span>
+				</div>
+				<p class="text-sm text-amber-900 dark:text-amber-200 mb-2 m-0">
+					Your order is confirmed. We’re finding a chef to prepare and deliver it. You’ll see live tracking and can
+					chat with your chef on WhatsApp once someone accepts.
+				</p>
+				<p class="text-xs text-amber-800/90 dark:text-amber-300/90 m-0">
+					Status: <strong class="capitalize">{{ customerOrderStatus || 'pending' }}</strong>
+				</p>
+				<div class="mt-3 flex flex-wrap items-center gap-2">
+					<Button icon="pi pi-refresh" label="Refresh status" class="flex-1" outlined size="small"
+						@click="refreshTracking" :loading="refreshing || trackingLoading" />
+					<Button icon="pi pi-whatsapp" severity="success" class="flex-1" size="small" label="Chat the Driver"
+						:disabled="!canChatChefOnWhatsApp"
+						:title="canChatChefOnWhatsApp ? 'Buka WhatsApp ke nomor chef' : chefWhatsappDisabledHint"
+						@click="openChefWhatsApp" />
+				</div>
+			</div>
+
+			<!-- Delivered / cancelled / other (no live map) -->
 			<div v-else
 				class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
 				<div class="flex items-center gap-2 mb-2">
 					<i class="pi pi-info-circle text-blue-600"></i>
 					<span class="font-medium text-blue-800 dark:text-blue-200">Order Status</span>
 				</div>
-				<p v-if="order.status === 'preparing'" class="text-blue-800 dark:text-blue-200">
-					Your order is being prepared in the kitchen. Tracking will be available once it's ready for delivery.
+				<p v-if="currentOrder.status === 'delivered'" class="text-blue-800 dark:text-blue-200">
+					Your order was delivered on {{ formatDate(currentOrder.deliveryTime || currentOrder.orderDate) }} at
+					{{ formatTime(currentOrder.deliveryTime || currentOrder.orderDate) }}.
 				</p>
-				<p v-else-if="order.status === 'delivered'" class="text-blue-800 dark:text-blue-200">
-					Your order was delivered on {{ formatDate(order.deliveryTime || order.orderDate) }} at {{
-						formatTime(order.deliveryTime || order.orderDate) }}.
-				</p>
-				<p v-else-if="order.status === 'cancelled'" class="text-blue-800 dark:text-blue-200">
+				<p v-else-if="currentOrder.status === 'cancelled'" class="text-blue-800 dark:text-blue-200">
 					This order was cancelled. Please contact support if you have any questions.
 				</p>
-				<p v-else class="text-blue-800 dark:text-blue-200">
-					Order status: {{ order.status }}
-				</p>
+				<p v-else class="text-blue-800 dark:text-blue-200">Order status: {{ currentOrder.status }}</p>
 			</div>
 
 			<!-- Rating Section (delivered orders only) -->
@@ -516,21 +620,22 @@ onUnmounted(() => {
 				<h4 class="font-semibold mb-3 text-gray-900 dark:text-white text-lg">Order Items</h4>
 				<div class="space-y-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 					<div class="relative">
-						<div v-for="item in currentOrder.items" :key="item.id"
+						<div v-for="(item, idx) in currentOrder.items || []"
+							:key="item.id ?? item.productId ?? item.name + '-' + idx"
 							class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 first:pt-0 last:border-b-0">
 							<div class="flex-1">
-								<p class="font-medium text-gray-900 dark:text-white mb-0">{{ item.name }}</p>
-								<p class="text-sm text-gray-500 dark:text-gray-400">{{ item.quantity }} × Rp{{
-									item.price.toLocaleString('id-ID') }}</p>
+								<p class="font-medium text-gray-900 dark:text-white mb-0">{{ item.name || 'Item' }}</p>
+								<p class="text-sm text-gray-500 dark:text-gray-400">
+									{{ item.quantity ?? 0 }} × Rp{{ formatIdr(item.price) }}
+								</p>
 							</div>
-							<p class="font-medium text-gray-900 dark:text-white">Rp{{ item.total.toLocaleString('id-ID') }}</p>
+							<p class="font-medium text-gray-900 dark:text-white">Rp{{ formatIdr(itemLineTotal(item)) }}</p>
 						</div>
 					</div>
 					<!-- Subtotal -->
 					<div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
 						<p class="font-medium text-gray-900 dark:text-white mb-0">Subtotal</p>
-						<p class="font-medium text-gray-900 dark:text-white">Rp{{ currentOrder.subtotal.toLocaleString('id-ID') }}
-						</p>
+						<p class="font-medium text-gray-900 dark:text-white">Rp{{ formatIdr(currentOrder.subtotal) }}</p>
 					</div>
 
 					<!-- Discount (if applicable) -->
@@ -540,17 +645,17 @@ onUnmounted(() => {
 							<p v-if="currentOrder.promoCode" class="text-xs text-blue-600 dark:text-blue-400">{{
 								currentOrder.promoCode }} - {{ currentOrder.promoTitle }}</p>
 						</div>
-						<p class="font-medium text-red-600">-Rp{{ currentOrder.discount.toLocaleString('id-ID') }}</p>
+						<p class="font-medium text-red-600">-Rp{{ formatIdr(currentOrder.discount) }}</p>
 					</div>
 
 					<!-- Total -->
 					<div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
 						<p class="font-semibold text-lg text-gray-900 dark:text-white mb-0">Total Amount</p>
-						<p class="font-bold text-lg text-green-600">Rp{{ currentOrder.total.toLocaleString('id-ID') }}</p>
+						<p class="font-bold text-lg text-green-600">Rp{{ formatIdr(currentOrder.total) }}</p>
 					</div>
 					<div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
 						<p class="font-medium text-gray-900 dark:text-white mb-0">Payment Method</p>
-						<p class="text-gray-600 dark:text-gray-400">{{ currentOrder.paymentMethod }}</p>
+						<p class="text-gray-600 dark:text-gray-400">{{ currentOrder.paymentMethod || '—' }}</p>
 					</div>
 					<!-- <div v-if="currentOrder.notes" class="pt-2 border-t border-gray-200 dark:border-gray-700">
 						<p class="text-sm text-gray-600 dark:text-gray-400">

@@ -1,13 +1,17 @@
 <script setup>
 import api from '@/services/api/index.js';
+import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
+import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const userStore = useUserStore();
+const driverStore = useDriverStore();
 const toast = useToast();
+const confirm = useConfirm();
 
 const orders = ref([]);
 const isLoading = ref(false);
@@ -69,6 +73,57 @@ const getNextAction = (order) => {
     if (s === 'preparing') return { label: 'Out for delivery', status: 'on_delivery', icon: 'pi pi-truck' };
     if (s === 'on_delivery') return { label: 'Mark delivered', status: 'delivered', icon: 'pi pi-check' };
     return null;
+};
+
+/** Driver can cancel any non-terminal active order (e.g. can’t prepare — out of stock, or customer backs out). */
+const canDriverCancelOrder = (order) => {
+    const s = order?.status;
+    return s && !['delivered', 'cancelled'].includes(s);
+};
+
+const confirmCancelOrder = (order) => {
+    confirm.require({
+        header: 'Cancel this order?',
+        message: `Order ${order.orderNumber || order.id} will be marked cancelled. Use this if you cannot fulfil it (e.g. insufficient stock).`,
+        icon: 'pi pi-exclamation-triangle',
+        rejectLabel: 'Keep order',
+        acceptLabel: 'Yes, cancel order',
+        rejectClass: 'p-button-secondary p-button-outlined',
+        acceptClass: 'p-button-danger',
+        accept: () => cancelOrderAsDriver(order.id)
+    });
+};
+
+const cancelOrderAsDriver = async (orderId) => {
+    updatingId.value = orderId;
+    try {
+        const result = await driverStore.cancelOrder(orderId);
+        if (result.success) {
+            toast.add({
+                severity: 'info',
+                summary: 'Order cancelled',
+                detail: 'The order status is now cancelled.',
+                life: 3500
+            });
+            await fetchOrders();
+        } else {
+            toast.add({
+                severity: 'error',
+                summary: 'Could not cancel',
+                detail: result.error || 'Try again or contact admin.',
+                life: 4500
+            });
+        }
+    } catch (e) {
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: e?.message || 'Failed to cancel',
+            life: 4000
+        });
+    } finally {
+        updatingId.value = null;
+    }
 };
 
 const formatCurrency = (amount) => {
@@ -142,9 +197,16 @@ onMounted(() => {
                         <div class="mt-3 pt-3 border-t border-surface-200 dark:border-surface-700 flex flex-wrap gap-2">
                             <Button v-if="getNextAction(order)" :label="getNextAction(order).label"
                                 :icon="getNextAction(order).icon" size="small" :loading="updatingId === order.id"
-                                :disabled="updatingId !== null"
+                                :disabled="updatingId !== null || driverStore.isProcessingOrder"
                                 :severity="order.status === 'on_delivery' ? 'success' : 'primary'"
+                                class="flex-1 min-w-[8rem]"
                                 @click="updateStatus(order.id, getNextAction(order).status)" />
+                            <Button v-if="canDriverCancelOrder(order)" label="Cancel order" icon="pi pi-times-circle"
+                                size="small" severity="danger" outlined class="flex-1 min-w-[8rem]"
+                                :loading="updatingId === order.id && driverStore.isProcessingOrder"
+                                :disabled="updatingId !== null || driverStore.isProcessingOrder"
+                                v-tooltip.top="'Cancel if you cannot process this order'"
+                                @click="confirmCancelOrder(order)" />
                         </div>
                     </div>
                 </div>

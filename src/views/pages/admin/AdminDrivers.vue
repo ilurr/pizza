@@ -325,8 +325,10 @@ onMounted(() => {
             <Column v-if="canManageDrivers" header="Action" style="min-width: 130px">
                 <template #body="{ data }">
                     <div class="flex">
-                        <Button icon="pi pi-pencil" text rounded severity="info" @click="openEditDialog(data)" />
-                        <Button icon="pi pi-trash" text rounded severity="danger" @click="removeDriver(data)" />
+                        <Button icon="pi pi-pencil" text rounded severity="info" v-tooltip.top="'Edit driver'"
+                            @click="openEditDialog(data)" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" v-tooltip.top="'Delete driver'"
+                            @click="removeDriver(data)" />
                     </div>
                 </template>
             </Column>

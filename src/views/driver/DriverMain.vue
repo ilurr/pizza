@@ -1,5 +1,6 @@
 <script setup>
 import DriverEndOfDayStockConfirmModal from '@/components/driver/DriverEndOfDayStockConfirmModal.vue';
+import OrderDetailDialog from '@/components/shared/OrderDetailDialog.vue';
 import UserAvatar from '@/components/shared/UserAvatar.vue';
 import { useDriverDailyCloseDay } from '@/composables/useDriverDailyCloseDay.js';
 import api from '@/services/api/index.js';
@@ -23,6 +24,8 @@ const closingModalVisible = ref(false);
 const refreshInterval = ref(null);
 const recentOrders = ref([]);
 const isLoadingRecentOrders = ref(false);
+const orderDialogVisible = ref(false);
+const selectedOrder = ref(null);
 const driverRating = ref(null);
 const todayEarnings = ref(0);
 const coverageKelurahan = ref([]);
@@ -53,6 +56,32 @@ const formatCurrency = (amount) => {
         minimumFractionDigits: 0
     }).format(amount);
     return formatted.replace(/\s/g, ''); // Remove spaces
+};
+
+const getStatusSeverity = (status) => {
+    const m = {
+        pending: 'warn',
+        assigned: 'info',
+        confirmed: 'info',
+        preparing: 'info',
+        on_delivery: 'info',
+        delivered: 'success',
+        cancelled: 'danger'
+    };
+    return m[status] || 'secondary';
+};
+
+const openOrderDialog = (order) => {
+    selectedOrder.value = order;
+    orderDialogVisible.value = true;
+};
+
+const onOrderDetailUpdated = (order) => {
+    selectedOrder.value = order;
+    const idx = recentOrders.value.findIndex((o) => o.id === order.id);
+    if (idx !== -1) {
+        recentOrders.value[idx] = { ...recentOrders.value[idx], ...order };
+    }
 };
 
 // Quick stats: shortcuts (navigate or open Close day after morning check-in)
@@ -357,6 +386,8 @@ onUnmounted(() => {
         <DriverEndOfDayStockConfirmModal v-model="closingModalVisible" :driver-id="driverIdForCloseDay"
             @confirmed="onCloseDayConfirmed" />
 
+        <OrderDetailDialog v-model="orderDialogVisible" :order="selectedOrder" @order-updated="onOrderDetailUpdated" />
+
         <!-- Recent Activity -->
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-surface-900 dark:text-surface-0 text-xl font-bold mb-0 text-left">Recent Orders</h2>
@@ -366,23 +397,33 @@ onUnmounted(() => {
         <div
             class="relative w-full rounded-lg border-2 border-surface-200 dark:border-surface-700 bg-card dark:bg-card overflow-hidden transition-shadow hover:shadow-md mb-8">
             <DataTable v-if="isLoadingRecentOrders || recentOrders.length > 0" :value="recentOrders"
-                :loading="isLoadingRecentOrders" responsiveLayout="scroll" :paginator="false">
-                <Column field="orderNumber" header="Order #" />
-                <Column field="customerName" header="Customer" />
-                <Column header="Status">
+                :loading="isLoadingRecentOrders" responsiveLayout="scroll" :paginator="false" class="p-datatable-sm">
+                <Column header="Order #" style="min-width: 8rem">
                     <template #body="{ data }">
-                        <Tag :value="data.status" :severity="data.status === 'pending' ? 'warning' : 'info'" />
+                        <span class="font-medium">{{ data.orderNumber || data.id }}</span>
                     </template>
                 </Column>
-                <Column header="Total">
+                <Column header="Customer" style="min-width: 10rem">
                     <template #body="{ data }">
-                        <span class="font-semibold">
-                            {{ formatCurrency(data.total) }}
-                        </span>
+                        <div class="font-medium">{{ data.customerName || '—' }}</div>
+                        <div v-if="data.customerPhone" class="text-xs text-surface-500">{{ data.customerPhone }}</div>
                     </template>
                 </Column>
-                <Column header="Distance">
-                    <template #body="{ data }"> {{ data.distance != null ? data.distance + 'km' : '—' }} </template>
+                <Column header="Status" style="min-width: 7rem">
+                    <template #body="{ data }">
+                        <Tag :value="data.status" :severity="getStatusSeverity(data.status)" />
+                    </template>
+                </Column>
+                <Column header="Total" style="min-width: 8rem">
+                    <template #body="{ data }">
+                        <span class="font-semibold">{{ formatCurrency(Number(data.total || 0)) }}</span>
+                    </template>
+                </Column>
+                <Column header="Actions" style="width: 5rem">
+                    <template #body="{ data }">
+                        <Button icon="pi pi-eye" text rounded severity="secondary" v-tooltip.top="'View order details'"
+                            @click="openOrderDialog(data)" />
+                    </template>
                 </Column>
             </DataTable>
 

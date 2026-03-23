@@ -34,9 +34,12 @@ export function useActiveOrders() {
                 await userStore.fetchUser();
             }
 
-            // Get all orders for this user and filter for active ones
-            const userId = userStore.user?.id ?? 'guest_user';
-            const orders = await ProductService.getOrders(userId);
+            const userId = userStore.user?.id;
+            if (userId == null || String(userId) === '') {
+                activeOrders.value = [];
+                return;
+            }
+            const orders = await ProductService.getOrders(String(userId));
             
             // Filter orders for active statuses
             activeOrders.value = orders.filter(order => 

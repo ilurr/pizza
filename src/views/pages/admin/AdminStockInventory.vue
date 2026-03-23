@@ -214,6 +214,10 @@ const stockStats = computed(() => [
 
 const updateStockQuantity = async (row: any, newQuantity: number) => {
     if (newQuantity == null || newQuantity < 0) return;
+    const prev = Number(row?.currentStock ?? 0);
+    const next = Number(newQuantity);
+    // InputNumber often re-emits on blur even when the user didn't change the value — skip redundant API calls
+    if (next === prev) return;
     if (isLockedDriver(row?.driverId)) {
         toast.add({
             severity: 'warn',
@@ -427,14 +431,17 @@ onMounted(async () => {
                     <label for="crit-only" class="text-sm">Critical stock only</label>
                 </div>
             </div>
-            <div class="col-span-12 md:col-span-3 flex items-end justify-end gap-2">
+            <div class="col-span-12 md:col-span-3 flex items-end gap-2">
+            </div>
+            <div class="col-span-12 md:col-span-8 flex gap-2">
                 <Button label="Exchange history" icon="pi pi-history" outlined @click="openExchangeHistoryModal" />
-                <Button label="Exchange" icon="pi pi-arrow-right-arrow-left" outlined size="small"
-                    @click="openExchangeModal" />
-                <Button label="Refresh" icon="pi pi-sync" outlined :loading="isLoading" @click="loadStock" />
-                <Button label="Initialize missing ingredients" icon="pi pi-plus-circle" outlined size="small"
+                <Button label="Exchange" icon="pi pi-arrow-right-arrow-left" outlined @click="openExchangeModal" />
+                <Button label="Initialize missing ingredients" icon="pi pi-plus-circle" outlined
                     :loading="isInitializingStock" :disabled="isLockedDriver(selectedDriverId) || !selectedDriverId"
                     @click="initializeMissingIngredients" />
+            </div>
+            <div class="col-span-12 md:col-span-4 flex items-end justify-end gap-2">
+                <Button label="Refresh" icon="pi pi-sync" outlined :loading="isLoading" @click="loadStock" />
             </div>
         </div>
 
@@ -507,10 +514,15 @@ onMounted(async () => {
                 </template>
             </Column>
 
-            <Column header="" style="width: 72px">
+            <Column header="Actions" style="width: 88px">
                 <template #body="{ data }">
-                    <Button v-if="!isLockedDriver(data.driverId)" icon="pi pi-plus" severity="success" outlined
-                        size="small" v-tooltip.top="'Restock'" @click="openRestockDialog(data)" />
+                    <div class="flex items-center gap-1 justify-end">
+                        <Button v-if="!isLockedDriver(data.driverId)" icon="pi pi-plus" severity="success" outlined
+                            size="small" v-tooltip.top="'Restock'" @click="openRestockDialog(data)" />
+                        <span v-else v-tooltip.top="'Opening stock confirmed — restock disabled'" class="inline-flex">
+                            <Button icon="pi pi-lock" severity="secondary" outlined size="small" disabled />
+                        </span>
+                    </div>
                 </template>
             </Column>
         </DataTable>
@@ -522,7 +534,7 @@ onMounted(async () => {
                     <div class="text-lg font-semibold">{{ selectedRestockItem.name }}</div>
                     <small class="text-surface-500">Current: {{ selectedRestockItem.currentStock }} {{
                         selectedRestockItem.unit
-                        }}</small>
+                    }}</small>
                 </div>
                 <div>
                     <label class="block font-medium mb-2">Add quantity</label>
@@ -530,7 +542,7 @@ onMounted(async () => {
                         :max="selectedRestockItem.maxCapacity - selectedRestockItem.currentStock" class="w-full" />
                     <small class="text-surface-500">Max: {{ selectedRestockItem.maxCapacity }} {{
                         selectedRestockItem.unit
-                        }}</small>
+                    }}</small>
                 </div>
             </div>
             <template #footer>

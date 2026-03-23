@@ -1,4 +1,5 @@
 <script setup>
+import OrderDetailDialog from '@/components/shared/OrderDetailDialog.vue';
 import api from '@/services/api/index.js';
 import { useUserStore } from '@/stores/userStore';
 import { computed, onMounted, ref } from 'vue';
@@ -9,6 +10,8 @@ const userStore = useUserStore();
 
 const orders = ref([]);
 const isLoading = ref(false);
+const orderDialogVisible = ref(false);
+const selectedOrder = ref(null);
 const filterType = ref('all'); // 'all' | 'app' | 'walk-in' when we have offline
 
 const filteredOrders = computed(() => {
@@ -53,6 +56,19 @@ const getStatusSeverity = (status) => {
 
 const goToOnline = () => router.push('/driver/orders/online');
 
+const openOrderDialog = (order) => {
+    selectedOrder.value = order;
+    orderDialogVisible.value = true;
+};
+
+const onOrderDetailUpdated = (order) => {
+    selectedOrder.value = order;
+    const idx = orders.value.findIndex((o) => o.id === order.id);
+    if (idx !== -1) {
+        orders.value[idx] = { ...orders.value[idx], ...order };
+    }
+};
+
 onMounted(() => {
     fetchOrders();
 });
@@ -91,11 +107,15 @@ onMounted(() => {
             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
             currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
         >
-            <Column field="orderNumber" header="Order #" style="min-width: 8rem" />
-            <Column field="customerName" header="Customer" style="min-width: 10rem" />
-            <Column header="Type" style="min-width: 6rem">
+            <Column header="Order #" style="min-width: 8rem">
                 <template #body="{ data }">
-                    <Tag :value="data.orderType === 'walk-in' ? 'Walk-in' : 'App'" :severity="data.orderType === 'walk-in' ? 'orange' : 'info'" />
+                    <span class="font-medium">{{ data.orderNumber || data.id }}</span>
+                </template>
+            </Column>
+            <Column header="Customer" style="min-width: 10rem">
+                <template #body="{ data }">
+                    <div class="font-medium">{{ data.customerName || '—' }}</div>
+                    <div v-if="data.customerPhone" class="text-xs text-surface-500">{{ data.customerPhone }}</div>
                 </template>
             </Column>
             <Column header="Status" style="min-width: 7rem">
@@ -105,12 +125,17 @@ onMounted(() => {
             </Column>
             <Column header="Total" style="min-width: 8rem">
                 <template #body="{ data }">
-                    <span class="font-semibold">{{ formatCurrency(data.total) }}</span>
+                    <span class="font-semibold">{{ formatCurrency(Number(data.total || 0)) }}</span>
                 </template>
             </Column>
-            <Column header="Date" style="min-width: 10rem">
-                <template #body="{ data }">{{ formatDate(data.orderDate) }}</template>
+            <Column header="Actions" style="width: 5rem">
+                <template #body="{ data }">
+                    <Button icon="pi pi-eye" text rounded severity="secondary" v-tooltip.top="'View order details'"
+                        @click="openOrderDialog(data)" />
+                </template>
             </Column>
         </DataTable>
+
+        <OrderDetailDialog v-model="orderDialogVisible" :order="selectedOrder" @order-updated="onOrderDetailUpdated" />
     </div>
 </template>

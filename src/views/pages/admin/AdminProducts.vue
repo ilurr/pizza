@@ -434,11 +434,11 @@ onMounted(() => {
                 <template #body="{ data }">
                     <div class="flex">
                         <Button v-if="canViewPriceHistory" icon="pi pi-clock" text rounded severity="secondary"
-                            @click="openHistoryDialog(data)" />
+                            v-tooltip.top="'Price history'" @click="openHistoryDialog(data)" />
                         <Button v-if="canManageProducts" icon="pi pi-pencil" text rounded severity="info"
-                            @click="openEditDialog(data)" />
+                            v-tooltip.top="'Edit product'" @click="openEditDialog(data)" />
                         <Button v-if="canManageProducts" icon="pi pi-trash" text rounded severity="danger"
-                            @click="removeProduct(data)" />
+                            v-tooltip.top="'Delete product'" @click="removeProduct(data)" />
                     </div>
                 </template>
             </Column>

@@ -268,6 +268,7 @@ onMounted(() => {
                             text
                             rounded
                             severity="info"
+                            v-tooltip.top="'Edit customer'"
                             @click="openEditCustomerDialog(data)"
                         />
                     </div>

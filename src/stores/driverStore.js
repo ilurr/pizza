@@ -289,25 +289,39 @@ export const useDriverStore = defineStore('driver', {
             }
         },
 
-        async rejectOrder(orderId, reason = '') {
+        /** Cancel order (pending → delivered except terminal). Restores stock if already deducted for preparing. */
+        async cancelOrder(orderId) {
             this.isProcessingOrder = true;
             try {
-                const order = this.pendingOrders.find((o) => o.id === orderId);
+                const order =
+                    this.pendingOrders.find((o) => o.id === orderId) || this.activeOrders.find((o) => o.id === orderId);
                 if (!order) {
                     return { success: false, error: 'Order not found' };
                 }
-                const res = await api.orders.updateOrderStatus(orderId, 'cancelled', {});
+                if (['delivered', 'cancelled'].includes(order.status)) {
+                    return { success: false, error: 'Order cannot be cancelled' };
+                }
+                const res = await api.orders.updateOrderStatus(String(orderId), 'cancelled', {});
                 if (!res?.success) {
-                    return { success: false, error: res?.message || 'Failed to reject order' };
+                    const errMsg =
+                        res?.error?.message ||
+                        res?.message ||
+                        (typeof res?.error === 'string' ? res.error : null) ||
+                        'Failed to cancel order';
+                    return { success: false, error: errMsg };
                 }
                 await this.loadOrders();
                 return { success: true };
             } catch (error) {
-                console.error('Failed to reject order:', error);
+                console.error('Failed to cancel order:', error);
                 return { success: false, error: error.message };
             } finally {
                 this.isProcessingOrder = false;
             }
+        },
+
+        async rejectOrder(orderId, reason = '') {
+            return this.cancelOrder(orderId);
         },
 
         async updateOrderStatus(orderId, status, location = null) {

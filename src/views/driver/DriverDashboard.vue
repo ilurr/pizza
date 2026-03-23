@@ -1,12 +1,14 @@
 <script setup>
 import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
+import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const driverStore = useDriverStore();
 const userStore = useUserStore();
 const toast = useToast();
+const confirm = useConfirm();
 
 const refreshInterval = ref(null);
 
@@ -106,26 +108,36 @@ const acceptOrder = async (orderId) => {
     }
 };
 
-const rejectOrder = async (orderId) => {
-    // Prevent double-clicking
-    if (driverStore.isProcessingOrder) return;
-
-    const result = await driverStore.rejectOrder(orderId);
-    if (result.success) {
-        toast.add({
-            severity: 'info',
-            summary: 'Order Rejected',
-            detail: 'The order has been returned to the queue',
-            life: 3000
-        });
-    } else {
-        toast.add({
-            severity: 'error',
-            summary: 'Failed to Reject Order',
-            detail: result.error,
-            life: 3000
-        });
-    }
+const confirmAndCancelOrder = (order, { isActive = false } = {}) => {
+    confirm.require({
+        header: 'Cancel this order?',
+        message: isActive
+            ? `Order ${order.orderNumber || order.id} will be marked cancelled. Ingredient stock will be returned if it was already deducted.`
+            : `Order ${order.orderNumber || order.id} will be marked cancelled if you cannot take it.`,
+        icon: 'pi pi-exclamation-triangle',
+        rejectLabel: 'Keep order',
+        acceptLabel: 'Yes, cancel order',
+        rejectClass: 'p-button-secondary p-button-outlined',
+        acceptClass: 'p-button-danger',
+        accept: async () => {
+            const result = await driverStore.cancelOrder(order.id);
+            if (result.success) {
+                toast.add({
+                    severity: 'info',
+                    summary: 'Order cancelled',
+                    detail: 'The order status is now cancelled.',
+                    life: 3500
+                });
+            } else {
+                toast.add({
+                    severity: 'error',
+                    summary: 'Could not cancel',
+                    detail: result.error,
+                    life: 4500
+                });
+            }
+        }
+    });
 };
 
 const updateOrderStatus = async (orderId, status) => {
@@ -305,7 +317,7 @@ onUnmounted(() => {
                             <!-- Action Buttons -->
                             <div class="flex gap-2">
                                 <Button label="Accept" icon="pi pi-check" @click="acceptOrder(order.id)" :loading="driverStore.isProcessingOrder" :disabled="driverStore.isProcessingOrder" severity="success" size="small" class="flex-1" />
-                                <Button label="Reject" icon="pi pi-times" @click="rejectOrder(order.id)" :loading="driverStore.isProcessingOrder" :disabled="driverStore.isProcessingOrder" severity="danger" size="small" outlined class="flex-1" />
+                                <Button label="Cancel order" icon="pi pi-times-circle" @click="confirmAndCancelOrder(order, { isActive: false })" :loading="driverStore.isProcessingOrder" :disabled="driverStore.isProcessingOrder" severity="danger" size="small" outlined class="flex-1" />
                             </div>
                         </div>
                     </div>
@@ -353,8 +365,17 @@ onUnmounted(() => {
 
                             <!-- Status updates (matches Supabase/API order statuses) -->
                             <div class="grid grid-cols-1 gap-2">
-                                <Button v-if="order.status === 'preparing'" label="On the way" icon="pi pi-arrow-right" @click="updateOrderStatus(order.id, 'on_delivery')" size="small" severity="info" />
-                                <Button v-if="order.status === 'on_delivery'" label="Delivered" icon="pi pi-verified" @click="updateOrderStatus(order.id, 'delivered')" size="small" severity="success" />
+                                <Button v-if="order.status === 'preparing'" label="On the way" icon="pi pi-arrow-right" @click="updateOrderStatus(order.id, 'on_delivery')" size="small" severity="info" :disabled="driverStore.isProcessingOrder" />
+                                <Button v-if="order.status === 'on_delivery'" label="Delivered" icon="pi pi-verified" @click="updateOrderStatus(order.id, 'delivered')" size="small" severity="success" :disabled="driverStore.isProcessingOrder" />
+                                <Button
+                                    label="Cancel order"
+                                    icon="pi pi-times-circle"
+                                    size="small"
+                                    severity="danger"
+                                    outlined
+                                    :disabled="driverStore.isProcessingOrder"
+                                    @click="confirmAndCancelOrder(order, { isActive: true })"
+                                />
                             </div>
                         </div>
                     </div>

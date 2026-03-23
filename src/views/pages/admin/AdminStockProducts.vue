@@ -199,9 +199,9 @@ onMounted(() => loadStockProducts());
                     <template #body="{ data }">
                         <div class="flex gap-2">
                             <Button v-if="canManage" icon="pi pi-pencil" severity="secondary" text rounded
-                                @click="openEditDialog(data)" />
+                                v-tooltip.top="'Edit ingredient'" @click="openEditDialog(data)" />
                             <Button v-if="canManage" icon="pi pi-trash" severity="danger" text rounded
-                                @click="deleteProduct(data)" />
+                                v-tooltip.top="'Delete ingredient'" @click="deleteProduct(data)" />
                         </div>
                     </template>
                 </Column>
