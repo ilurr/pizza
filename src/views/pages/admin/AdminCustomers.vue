@@ -211,7 +211,8 @@ onMounted(() => {
             <div class="col-span-12 md:col-span-6 flex items-end justify-end gap-2">
                 <Button
                     label="Refresh"
-                    icon="pi pi-sync"
+                        icon="pi pi-sync"
+                        loadingIcon="pi pi-spinner animate-spin"
                     outlined
                     :loading="isLoading"
                     @click="loadCustomers"

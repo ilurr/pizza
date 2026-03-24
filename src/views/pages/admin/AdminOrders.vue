@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// @ts-ignore - Vue SFCs with `<script setup>` should still have a default export at runtime.
 import OrderDetailDialog from '@/components/shared/OrderDetailDialog.vue';
 import api from '@/services/api/index.js';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -155,7 +156,13 @@ onMounted(async () => {
             </div>
             <div class="col-span-12 md:col-span-6 flex items-end justify-end gap-2">
                 <Button label="Reset" icon="pi pi-refresh" outlined @click="resetFilters" />
-                <Button label="Refresh" icon="pi pi-sync" @click="loadOrders" :loading="isLoading" />
+                <Button
+                    label="Refresh"
+                    icon="pi pi-sync"
+                    loadingIcon="pi pi-spinner animate-spin"
+                    @click="loadOrders"
+                    :loading="isLoading"
+                />
             </div>
         </div>
 

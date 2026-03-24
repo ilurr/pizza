@@ -266,7 +266,16 @@ onUnmounted(() => {
                     <div class="text-center">
                         <h4 class="text-lg font-semibold mb-4">Quick Actions</h4>
                         <div class="space-y-2">
-                            <Button label="Refresh Orders" icon="pi pi-refresh" @click="refreshData" :loading="driverStore.isLoadingOrders" class="w-full" size="small" outlined />
+                            <Button
+                                label="Refresh Orders"
+                                icon="pi pi-refresh"
+                                loadingIcon="pi pi-spinner animate-spin"
+                                @click="refreshData"
+                                :loading="driverStore.isLoadingOrders"
+                                class="w-full"
+                                size="small"
+                                outlined
+                            />
                             <Button label="Update Location" icon="pi pi-map-marker" @click="driverStore.updateLocation" :loading="driverStore.isUpdatingLocation" class="w-full" size="small" outlined />
                         </div>
                         <div class="mt-4 text-xs text-gray-500">

@@ -226,7 +226,7 @@ const submitClosing = async () => {
                             class="rounded-lg bg-white dark:bg-surface-800 p-2 border border-surface-200 dark:border-surface-600">
                             <div class="text-surface-500 text-xs">Units sold</div>
                             <div class="font-bold text-surface-900 dark:text-surface-0">{{ daySalesReport.totalSoldItems
-                            }}</div>
+                                }}</div>
                         </div>
                         <div
                             class="rounded-lg bg-white dark:bg-surface-800 p-2 border border-surface-200 dark:border-surface-600">

@@ -62,8 +62,15 @@ watch(selectedPeriod, () => loadEarnings());
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div class="flex flex-row items-center justify-between gap-3 mb-4">
                 <p class="text-600 dark:text-400 text-sm mb-0">Sold items and total earnings for the period.</p>
-                <Button label="Refresh" icon="pi pi-refresh" outlined size="small" :loading="isLoading"
-                    @click="loadEarnings" />
+                <Button
+                    label="Refresh"
+                    icon="pi pi-refresh"
+                    loadingIcon="pi pi-spinner animate-spin"
+                    outlined
+                    size="small"
+                    :loading="isLoading"
+                    @click="loadEarnings"
+                />
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <SelectButton v-model="selectedPeriod" :options="[

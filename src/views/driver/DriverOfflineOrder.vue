@@ -348,7 +348,14 @@ onMounted(async () => {
                     <h3 class="font-semibold text-red-800 dark:text-red-200 mb-1">Failed to load menu</h3>
                     <p class="text-sm text-red-700 dark:text-red-300 break-words">{{ loadError }}</p>
                     <p class="text-xs text-red-600 dark:text-red-400 mt-2">Check your internet connection and Supabase config (VITE_DATA_SOURCE, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). See console for details.</p>
-                    <Button label="Try again" icon="pi pi-refresh" class="mt-4" @click="loadMenu" :loading="isLoading" />
+                    <Button
+                        label="Try again"
+                        icon="pi pi-refresh"
+                        loadingIcon="pi pi-spinner animate-spin"
+                        class="mt-4"
+                        @click="loadMenu"
+                        :loading="isLoading"
+                    />
                 </div>
             </div>
         </div>
@@ -357,7 +364,15 @@ onMounted(async () => {
             <!-- Product list + Refresh -->
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-surface-900 dark:text-surface-0 text-xl font-bold mb-0 text-left">Product list</h2>
-                <Button label="Refresh" icon="pi pi-refresh" outlined size="small" :loading="isLoading" @click="refreshMenuAndStock" />
+                <Button
+                    label="Refresh"
+                    icon="pi pi-refresh"
+                    loadingIcon="pi pi-spinner animate-spin"
+                    outlined
+                    size="small"
+                    :loading="isLoading"
+                    @click="refreshMenuAndStock"
+                />
             </div>
 
             <!-- Category tabs -->

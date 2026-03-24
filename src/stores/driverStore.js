@@ -57,7 +57,10 @@ export const useDriverStore = defineStore('driver', {
         // Loading states
         isLoadingOrders: false,
         isUpdatingLocation: false,
-        isProcessingOrder: false
+        isProcessingOrder: false,
+
+        // MVP: throttle order-level driver GPS upserts.
+        lastOrderDriverLocationPushAt: null
     }),
 
     getters: {
@@ -237,6 +240,7 @@ export const useDriverStore = defineStore('driver', {
         // Location management
         async updateLocation() {
             this.isUpdatingLocation = true;
+            let locationSource = 'gps';
             try {
                 if (navigator.geolocation) {
                     const position = await new Promise((resolve, reject) => {
@@ -246,25 +250,52 @@ export const useDriverStore = defineStore('driver', {
                     this.currentLocation = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        source: 'gps'
                     };
                 } else {
                     // Fallback to coverage area center
+                    locationSource = 'fallback';
                     this.currentLocation = {
                         ...this.coverageArea.center,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        source: 'fallback'
                     };
                 }
             } catch (error) {
                 console.error('Failed to update location:', error);
                 // Use coverage area center as fallback
+                locationSource = 'fallback';
                 this.currentLocation = {
                     ...this.coverageArea.center,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    source: 'fallback'
                 };
             } finally {
                 this.isUpdatingLocation = false;
             }
+
+            // Periodic GPS push for all active orders (preparing / on_delivery).
+            const driverId = this.driverProfile?.id;
+            if (!driverId || !this.currentLocation) return;
+            if (!Array.isArray(this.activeOrders) || this.activeOrders.length === 0) return;
+
+            const pushIntervalMs = 5 * 60 * 1000; // MVP: upsert every 5 minutes
+            const last = this.lastOrderDriverLocationPushAt ? new Date(this.lastOrderDriverLocationPushAt).getTime() : 0;
+            const now = Date.now();
+            if (last && now - last < pushIntervalMs) {
+                return;
+            }
+
+            this.lastOrderDriverLocationPushAt = new Date().toISOString();
+            const locPayload = { lat: this.currentLocation.lat, lng: this.currentLocation.lng };
+            const source = this.currentLocation.source || locationSource || 'gps';
+
+            const targets = this.activeOrders
+                .filter((o) => ['preparing', 'on_delivery'].includes(o.status))
+                .map((o) => o.id);
+
+            await Promise.all(targets.map((oid) => api.orders.upsertOrderDriverLocation(oid, driverId, locPayload, source)));
         },
 
         // Order management (statuses: pending → assigned → preparing → on_delivery → delivered)
@@ -275,9 +306,38 @@ export const useDriverStore = defineStore('driver', {
                 if (!order || !this.canAcceptNewOrder) {
                     return { success: false, error: 'Cannot accept order' };
                 }
+                const driverId = this.driverProfile?.id;
+                if (!driverId) {
+                    return { success: false, error: 'Driver profile not loaded' };
+                }
+
+                // Ensure driver_id/driver_info are saved first.
+                // Without this, status transitions can fail and revert after a refresh.
+                const driverInfo = {
+                    name: this.driverProfile?.name,
+                    phone: this.driverProfile?.phone,
+                    avatar: this.driverProfile?.avatar,
+                    rating: this.driverProfile?.rating
+                };
+                const assignRes = await api.orders.assignDriver(orderId, driverId, driverInfo);
+                if (!assignRes?.success) {
+                    return { success: false, error: assignRes?.message || 'Failed to assign driver' };
+                }
+
                 const res = await api.orders.updateOrderStatus(orderId, 'preparing');
                 if (!res?.success) {
                     return { success: false, error: res?.message || 'Failed to accept order' };
+                }
+
+                // Save initial driver GPS for customer tracking.
+                if (driverId && this.currentLocation?.lat != null && this.currentLocation?.lng != null) {
+                    const locPayload = { lat: this.currentLocation.lat, lng: this.currentLocation.lng };
+                    const source = this.currentLocation.source || 'gps';
+                    try {
+                        await api.orders.upsertOrderDriverLocation(orderId, driverId, locPayload, source);
+                    } catch (e) {
+                        // MVP: ignore GPS save errors so status update can still succeed.
+                    }
                 }
                 await this.loadOrders();
                 return { success: true };
@@ -335,6 +395,22 @@ export const useDriverStore = defineStore('driver', {
                 if (!res?.success) {
                     return { success: false, error: res?.message || 'Failed to update status' };
                 }
+
+                // Save driver GPS when moving into customer-tracked states.
+                if (['preparing', 'on_delivery'].includes(status)) {
+                    const driverId = this.driverProfile?.id;
+                    const lat = location?.lat;
+                    const lng = location?.lng;
+                    if (driverId && lat != null && lng != null) {
+                        const locPayload = { lat, lng };
+                        const source = location?.source || 'gps';
+                        try {
+                            await api.orders.upsertOrderDriverLocation(orderId, driverId, locPayload, source);
+                        } catch (e) {
+                            // MVP: ignore GPS save errors.
+                        }
+                    }
+                }
                 await this.loadOrders();
                 return { success: true };
             } catch (error) {
@@ -383,6 +459,7 @@ export const useDriverStore = defineStore('driver', {
             this.isOnline = false;
             this.isAvailable = true;
             this.currentLocation = null;
+            this.lastOrderDriverLocationPushAt = null;
             this.pendingOrders = [];
             this.activeOrders = [];
             this.completedOrders = [];

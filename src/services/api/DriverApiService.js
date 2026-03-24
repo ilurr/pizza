@@ -374,6 +374,26 @@ export class DriverApiService extends BaseApiService {
         return await this.patch(`${this.endpoint}/${driverId}/stock`, { productId, quantity });
     }
 
+    // Update one stock item max capacity
+    async updateStockMaxCapacity(driverId, productId, maxCapacity) {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) return this.createMockError('Supabase not configured', 500);
+            const tableDriverId = await this._driverIdForTables(supabase, driverId);
+            const normalized = Math.max(1, Math.floor(Number(maxCapacity) || 0));
+            const { data, error } = await supabase
+                .from('driver_stock')
+                .update({ max_capacity: normalized, updated_at: new Date().toISOString() })
+                .eq('driver_id', tableDriverId)
+                .eq('product_id', productId)
+                .select()
+                .single();
+            if (error) return this.createMockError(error.message || 'Failed to update max capacity', error.code || 500);
+            return this.createMockResponse({ stock: data, message: 'Max capacity updated' });
+        }
+        return await this.patch(`${this.endpoint}/${driverId}/stock`, { productId, maxCapacity });
+    }
+
     /**
      * Admin: create missing `driver_stock` rows for a driver so the admin table can be populated.
      * This does NOT overwrite existing quantities.

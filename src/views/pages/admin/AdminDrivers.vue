@@ -271,7 +271,14 @@ onMounted(() => {
                 </div>
                 <div class="flex gap-2">
                     <Button label="Reset" icon="pi pi-refresh" outlined @click="resetFilters" />
-                    <Button label="Refresh" icon="pi pi-sync" outlined :loading="isLoading" @click="loadDrivers" />
+                    <Button
+                        label="Refresh"
+                        icon="pi pi-sync"
+                        loadingIcon="pi pi-spinner animate-spin"
+                        outlined
+                        :loading="isLoading"
+                        @click="loadDrivers"
+                    />
                 </div>
             </div>
         </div>

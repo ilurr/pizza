@@ -321,7 +321,7 @@ onMounted(() => {
                                 <i class="pi pi-exclamation-triangle text-yellow-600 dark:text-yellow-400 mb-2"></i>
                                 <p class="text-yellow-800 dark:text-yellow-200 font-medium mb-0">All chefs in your area are temporarily unavailable</p>
                                 <p class="text-yellow-700 dark:text-yellow-300 text-sm mb-0">Try again later or pick a different location</p>
-                                <Button label="Refresh" icon="pi pi-refresh" size="small" severity="warning" class="mt-3" @click="searchNearbyDrivers(userLocation)" />
+                                <Button label="Refresh" icon="pi pi-refresh" loadingIcon="pi pi-spinner animate-spin" size="small" severity="warning" class="mt-3" :loading="isLoading" @click="searchNearbyDrivers(userLocation)" />
                             </div>
                         </div>
                     </div>

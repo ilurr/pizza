@@ -158,7 +158,15 @@ onMounted(async () => {
                     Lihat stok Anda (baca saja). Sesuaikan jumlah fisik hanya lewat
                     <strong>dialog pembukaan hari</strong> di pagi hari. Tambah stok (restock) hanya melalui <strong>admin</strong>. Transfer antar driver lewat <strong>Exchange</strong>.
                 </p>
-                <Button label="Refresh" icon="pi pi-refresh" outlined size="small" :loading="isLoading" @click="loadStock" />
+                <Button
+                    label="Refresh"
+                    icon="pi pi-refresh"
+                    loadingIcon="pi pi-spinner animate-spin"
+                    outlined
+                    size="small"
+                    :loading="isLoading"
+                    @click="loadStock"
+                />
             </div>
             <div class="flex flex-wrap items-center w-full gap-2 border-t border-surface-200 dark:border-surface-700 pt-4">
                 <Button label="Exchange" icon="pi pi-arrow-right-arrow-left" outlined size="small" @click="openExchangeModal" />

@@ -25,10 +25,18 @@ interface Props {
 	loading?: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const trackingModalVisible = ref(false);
 const selectedOrder = ref(null);
+
+const syncOrderRating = (payload: { orderId: string; rating: Record<string, unknown> }) => {
+	const o = props.orders.find((x: any) => String(x.id) === String(payload.orderId));
+	if (o) o.rating = payload.rating;
+	if (selectedOrder.value && String((selectedOrder.value as any).id) === String(payload.orderId)) {
+		(selectedOrder.value as any).rating = payload.rating;
+	}
+};
 
 const getStatusColor = (status: string) => {
 	switch (status) {
@@ -162,6 +170,6 @@ const handleCardClick = (order: any) => {
 		</div>
 
 		<!-- Tracking Modal -->
-		<OrderTrackingModal v-model:visible="trackingModalVisible" :order="selectedOrder" />
+		<OrderTrackingModal v-model:visible="trackingModalVisible" :order="selectedOrder" @rated="syncOrderRating" />
 	</div>
 </template>

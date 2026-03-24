@@ -469,11 +469,85 @@ export class OrdersApiService extends BaseApiService {
         return await this.patch(`${this.endpoint}/${orderId}/assign-driver`, { driverId, driverInfo });
     }
 
+    /**
+     * MVP: store latest driver GPS per order.
+     * One row per order: upsert by `order_id`.
+     */
+    async upsertOrderDriverLocation(orderId, driverId, location, source = 'gps') {
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
+
+            if (!orderId) return this.createMockError('orderId is required', 400);
+            if (!driverId) return this.createMockError('driverId is required', 400);
+            const lat = Number(location?.lat);
+            const lng = Number(location?.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return this.createMockError('Invalid location lat/lng', 400);
+            }
+
+            const now = new Date().toISOString();
+            const payload = {
+                order_id: String(orderId),
+                driver_id: String(driverId),
+                lat,
+                lng,
+                source: source || 'gps',
+                updated_at: now
+            };
+
+            const { data, error } = await supabase
+                .from('order_driver_locations')
+                .upsert(payload, { onConflict: 'order_id' })
+                .select()
+                .single();
+
+            if (error) {
+                return this.createMockError(error.message || 'Failed to save driver location', error.code || 500);
+            }
+
+            return this.createMockResponse({
+                driverPosition: {
+                    lat: Number(data.lat),
+                    lng: Number(data.lng),
+                    source: data.source,
+                    updatedAt: data.updated_at
+                }
+            });
+        }
+
+        // Legacy API path (if you later switch to REST backend).
+        return await this.post(`${this.endpoint}/${orderId}/driver-location`, { driverId, location, source });
+    }
+
     async getOrderTracking(orderId) {
         if (this.dataSource === 'supabase') {
             const res = await this.getOrder(orderId);
             if (!res.success || !res.data?.order) return res;
             const order = res.data.order;
+
+            // Latest driver GPS for customer tracking map.
+            const supabase = getSupabaseClient();
+            let driverPosition = null;
+            if (supabase) {
+                const { data: dpRow } = await supabase
+                    .from('order_driver_locations')
+                    .select('lat, lng, source, updated_at')
+                    .eq('order_id', String(orderId))
+                    .maybeSingle();
+
+                if (dpRow) {
+                    driverPosition = {
+                        lat: Number(dpRow.lat),
+                        lng: Number(dpRow.lng),
+                        source: dpRow.source,
+                        updatedAt: dpRow.updated_at
+                    };
+                }
+            }
+
             const trackingSteps = [
                 { status: 'pending', label: 'Order Placed', timestamp: order.orderDate, completed: true, description: 'Your order has been received and is being processed' },
                 { status: 'assigned', label: 'Order Confirmed', timestamp: order.updatedAt, completed: !['pending'].includes(order.status), description: 'Your order has been confirmed and assigned to a chef' },
@@ -487,6 +561,7 @@ export class OrdersApiService extends BaseApiService {
                 estimatedDelivery: order.estimatedDelivery,
                 trackingSteps,
                 driverInfo: order.driverInfo,
+                driverPosition,
                 lastUpdated: order.updatedAt
             });
         }
@@ -618,6 +693,79 @@ export class OrdersApiService extends BaseApiService {
         }
 
         return await this.patch(`${this.endpoint}/${orderId}/payment-method`, { paymentMethod: method });
+    }
+
+    /**
+     * Customer: save ratings on a delivered order (Supabase: `orders.rating` JSONB).
+     * One food score for the whole order (all line items); one driver/chef score.
+     * @param {string} orderId
+     * @param {string} customerId must match order.customer_id
+     * @param {{ foodScore?: number, driverScore?: number }} scores 1–5 each
+     */
+    async saveOrderRating(orderId, customerId, scores = {}) {
+        const clampStar = (n) => {
+            const x = Math.round(Number(n));
+            if (!Number.isFinite(x)) return null;
+            return Math.min(5, Math.max(1, x));
+        };
+
+        if (this.dataSource === 'supabase') {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                return this.createMockError('Supabase not configured', 500);
+            }
+
+            const { data: prev, error: fetchErr } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle();
+            if (fetchErr || !prev) {
+                return this.createMockError('Order not found', 404);
+            }
+            if (String(prev.customer_id || '') !== String(customerId || '')) {
+                return this.createMockError('Not allowed to rate this order', 403);
+            }
+            if (String(prev.status || '') !== 'delivered') {
+                return this.createMockError('Only delivered orders can be rated', 400);
+            }
+
+            let base = {};
+            const raw = prev.rating;
+            if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+                base = { ...raw };
+            } else if (typeof raw === 'number' && Number.isFinite(raw)) {
+                const f = clampStar(raw);
+                if (f != null) base = { score: f, foodScore: f };
+            }
+
+            const next = { ...base };
+            if (scores.foodScore !== undefined) {
+                const f = clampStar(scores.foodScore);
+                if (f == null) return this.createMockError('Invalid food rating', 400);
+                next.foodScore = f;
+                next.score = f;
+            }
+            if (scores.driverScore !== undefined) {
+                const d = clampStar(scores.driverScore);
+                if (d == null) return this.createMockError('Invalid driver rating', 400);
+                next.driverScore = d;
+            }
+            next.ratedAt = new Date().toISOString();
+
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ rating: next, updated_at: new Date().toISOString() })
+                .eq('id', orderId)
+                .select()
+                .single();
+
+            if (error) {
+                return this.createMockError(error.message || 'Failed to save rating', error.code || 500);
+            }
+            let order = rowToOrder(data);
+            const enriched = await enrichOrdersDriverInfoFromUsers(supabase, [order]);
+            order = enriched[0] || order;
+            return this.createMockResponse({ order, message: 'Rating saved' });
+        }
+
+        return await this.patch(`${this.endpoint}/${orderId}/rating`, { ...scores, customerId });
     }
 }
 

@@ -4,6 +4,8 @@ import { useLeaflet } from '@/composables/useLeaflet';
 import { useTrackingService } from '@/composables/useTrackingService';
 import api from '@/services/api/index.js';
 import { useOrderStore } from '@/stores/orderStore.js';
+import { useUserStore } from '@/stores/userStore';
+import { useToast } from 'primevue/usetoast';
 import { computed, onUnmounted, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -18,12 +20,17 @@ const props = defineProps({
 	}
 });
 
-const emit = defineEmits(['update:visible', 'rate']);
+const emit = defineEmits<{
+	'update:visible': [value: boolean];
+	rated: [payload: { orderId: string; rating: Record<string, unknown> }];
+}>();
 
 const selectedFoodRating = ref(0);
 const selectedDriverRating = ref(0);
 
 const orderStore = useOrderStore();
+const userStore = useUserStore();
+const toast = useToast();
 
 const tracking = ref<any | null>(null);
 const trackingLoading = ref(false);
@@ -280,38 +287,29 @@ const createDriverMarkerIcon = async () => {
 };
 
 const addDriverMarker = async () => {
-	if (!map.value || !driverPosition.value) return;
+		if (!map.value) return;
+		if (!userPosition.value) return;
 
-	const driverMarker = await addMarker(map.value, driverPosition.value.lat, driverPosition.value.lng, {
-		icon: await createDriverMarkerIcon(),
-		popup: `Driver: ${driverInfo.value?.name ?? 'Driver'}`
-	});
+		// Always show customer pin.
+		const userMarker = await addMarker(map.value, userPosition.value.lat, userPosition.value.lng, {
+			icon: await createUserMarkerIcon()
+		});
 
-	// Fit map to show both markers
-	const userMarker = await addMarker(map.value, userPosition.value.lat, userPosition.value.lng, {
-		icon: await createUserMarkerIcon()
-	});
+		// If we don't yet have driver GPS, don't draw route / driver pin.
+		if (!driverPosition.value) {
+			await fitBounds(map.value, [userMarker]);
+			return;
+		}
 
-	// Draw route between driver and user
-	try {
-		const routeResult = await drawRoute(
-			map.value,
-			driverPosition.value.lat,
-			driverPosition.value.lng,
-			userPosition.value.lat,
-			userPosition.value.lng,
-			{
-				color: '#059669',
-				weight: 4,
-				opacity: 0.7
-			}
-		);
+		// Show driver pin.
+		const driverMarker = await addMarker(map.value, driverPosition.value.lat, driverPosition.value.lng, {
+			icon: await createDriverMarkerIcon(),
+			popup: `Driver: ${driverInfo.value?.name ?? 'Driver'}`
+		});
 
-		// If routing service fails, draw a straight line as fallback
-		if (!routeResult) {
-			console.log('Using straight line fallback for route');
-			const { drawStraightLine } = useLeaflet();
-			await drawStraightLine(
+		// Draw route between driver and user.
+		try {
+			const routeResult = await drawRoute(
 				map.value,
 				driverPosition.value.lat,
 				driverPosition.value.lng,
@@ -319,32 +317,64 @@ const addDriverMarker = async () => {
 				userPosition.value.lng,
 				{
 					color: '#059669',
+					weight: 4,
+					opacity: 0.7
+				}
+			);
+
+			// If routing service fails, draw a straight line as fallback.
+			if (!routeResult) {
+				console.log('Using straight line fallback for route');
+				const { drawStraightLine } = useLeaflet();
+				await drawStraightLine(map.value, driverPosition.value.lat, driverPosition.value.lng, userPosition.value.lat, userPosition.value.lng, {
+					color: '#059669',
 					weight: 3,
 					opacity: 0.6,
 					dashArray: '10, 5'
-				}
-			);
-		}
-	} catch (error) {
-		console.warn('Route drawing failed, using straight line:', error);
-		const { drawStraightLine } = useLeaflet();
-		await drawStraightLine(
-			map.value,
-			driverPosition.value.lat,
-			driverPosition.value.lng,
-			userPosition.value.lat,
-			userPosition.value.lng,
-			{
+				});
+			}
+		} catch (error) {
+			console.warn('Route drawing failed, using straight line:', error);
+			const { drawStraightLine } = useLeaflet();
+			await drawStraightLine(map.value, driverPosition.value.lat, driverPosition.value.lng, userPosition.value.lat, userPosition.value.lng, {
 				color: '#059669',
 				weight: 3,
 				opacity: 0.6,
 				dashArray: '10, 5'
-			}
-		);
-	}
+			});
+		}
 
-	await fitBounds(map.value, [userMarker, driverMarker]);
+		await fitBounds(map.value, [userMarker, driverMarker]);
 };
+
+	/**
+	 * Render/refresh map pins + route based on:
+	 * - customer's geolocation (from getLocation())
+	 * - saved driver GPS returned by getOrderTracking()
+	 */
+	const renderMapMarkers = async () => {
+		if (!map.value) return;
+
+		// Ensure customer position exists.
+		if (!userPosition.value) {
+			await getLocation();
+		}
+		if (!userPosition.value) return;
+
+		// Sync driver GPS from the tracking API.
+		const dp = tracking.value?.driverPosition;
+		if (dp && Number.isFinite(Number(dp.lat)) && Number.isFinite(Number(dp.lng))) {
+			driverPosition.value = { lat: Number(dp.lat), lng: Number(dp.lng) };
+		} else {
+			driverPosition.value = null;
+		}
+
+		// Clear old pins & routes before re-drawing.
+		await clearMarkers(map.value);
+		await clearRoutes(map.value);
+
+		await addDriverMarker();
+	};
 
 const refreshTracking = async () => {
 	refreshing.value = true;
@@ -367,14 +397,52 @@ const closeModal = () => {
 const foodScore = (order: any) => order?.rating?.foodScore ?? order?.rating?.score ?? 0;
 const driverScore = (order: any) => order?.rating?.driverScore ?? 0;
 
-const onRateFood = (score: number) => {
-	selectedFoodRating.value = score;
-	emit('rate', { orderId: props.order?.id, type: 'food', score });
+const persistRating = async (patch: { foodScore?: number; driverScore?: number }) => {
+	const o = props.order;
+	if (!o?.id || o.customerId == null || String(o.customerId) === '') {
+		toast.add({ severity: 'warn', summary: 'Cannot save', detail: 'Missing order or customer.', life: 3500 });
+		return false;
+	}
+	if (userStore.user != null && String(userStore.user.id) !== String(o.customerId)) {
+		toast.add({ severity: 'warn', summary: 'Cannot save', detail: 'This order is not linked to your account.', life: 3500 });
+		return false;
+	}
+	try {
+		const res: any = await api.orders.saveOrderRating(String(o.id), String(o.customerId), patch);
+		if (!res?.success) {
+			toast.add({
+				severity: 'error',
+				summary: 'Rating not saved',
+				detail: res?.error?.message || 'Please try again.',
+				life: 4000
+			});
+			return false;
+		}
+		const rating = res?.data?.order?.rating;
+		emit('rated', { orderId: String(o.id), rating });
+		toast.add({ severity: 'success', summary: 'Thanks!', detail: 'Your rating was saved.', life: 2500 });
+		return true;
+	} catch (e: unknown) {
+		const msg = e instanceof Error ? e.message : 'Please try again.';
+		toast.add({ severity: 'error', summary: 'Rating not saved', detail: msg, life: 4000 });
+		return false;
+	}
 };
 
-const onRateDriver = (score: number) => {
+const onRateFood = async (score: number) => {
+	const prev = selectedFoodRating.value;
+	const fromOrder = foodScore(props.order);
+	selectedFoodRating.value = score;
+	const ok = await persistRating({ foodScore: score });
+	if (!ok) selectedFoodRating.value = fromOrder > 0 ? fromOrder : prev;
+};
+
+const onRateDriver = async (score: number) => {
+	const prev = selectedDriverRating.value;
+	const fromOrder = driverScore(props.order);
 	selectedDriverRating.value = score;
-	emit('rate', { orderId: props.order?.id, type: 'driver', score });
+	const ok = await persistRating({ driverScore: score });
+	if (!ok) selectedDriverRating.value = fromOrder > 0 ? fromOrder : prev;
 };
 
 const hasFoodRating = (order: any) => (foodScore(order) || selectedFoodRating.value) > 0;
@@ -390,7 +458,7 @@ watch(
 			loadTracking();
 			if (showLiveTrackingMap.value) {
 				setTimeout(() => {
-					initializeMap();
+						initializeMap().then(renderMapMarkers);
 				}, 300); // Wait for modal to render
 			}
 		}
@@ -410,6 +478,16 @@ watch(
 	},
 	{ immediate: true }
 );
+
+	// When tracking response updates (including driver GPS), refresh pins.
+	watch(
+		() => tracking.value,
+		() => {
+			if (showLiveTrackingMap.value) {
+				setTimeout(() => renderMapMarkers(), 0);
+			}
+		}
+	);
 
 onUnmounted(() => {
 	if (map.value) {
@@ -486,12 +564,28 @@ onUnmounted(() => {
 								Your chef is on the way. Estimated time will appear here once available.
 							</p>
 						</div>
-						<Button icon="pi pi-whatsapp" severity="success" rounded size="small" label="Chat the Driver"
+						<Button
+							v-if="customerOrderStatus === 'preparing'"
+							icon="pi pi-whatsapp"
+							severity="success"
+							rounded
+							size="small"
+							label="Chat the Driver"
 							:disabled="!canChatChefOnWhatsApp"
 							:title="canChatChefOnWhatsApp ? 'Chat chef on WhatsApp' : chefWhatsappDisabledHint"
-							@click="openChefWhatsApp" />
-						<Button icon="pi pi-refresh" outlined rounded size="small" @click="refreshTracking"
-							:loading="refreshing || trackingLoading" label="Refresh" title="Refresh tracking" />
+							@click="openChefWhatsApp"
+						/>
+						<Button
+							icon="pi pi-refresh"
+							loadingIcon="pi pi-spinner animate-spin"
+							outlined
+							rounded
+							size="small"
+							@click="refreshTracking"
+							:loading="refreshing || trackingLoading"
+							label="Refresh"
+							title="Refresh tracking"
+						/>
 					</div>
 				</div>
 
@@ -560,8 +654,16 @@ onUnmounted(() => {
 					Status: <strong class="capitalize">{{ customerOrderStatus || 'pending' }}</strong>
 				</p>
 				<div class="mt-3 flex flex-wrap items-center gap-2">
-					<Button icon="pi pi-refresh" label="Refresh status" class="flex-1" outlined size="small"
-						@click="refreshTracking" :loading="refreshing || trackingLoading" />
+					<Button
+						icon="pi pi-refresh"
+						loadingIcon="pi pi-spinner animate-spin"
+						label="Refresh status"
+						class="flex-1"
+						outlined
+						size="small"
+						@click="refreshTracking"
+						:loading="refreshing || trackingLoading"
+					/>
 					<Button icon="pi pi-whatsapp" severity="success" class="flex-1" size="small" label="Chat the Driver"
 						:disabled="!canChatChefOnWhatsApp"
 						:title="canChatChefOnWhatsApp ? 'Buka WhatsApp ke nomor chef' : chefWhatsappDisabledHint"

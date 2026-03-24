@@ -115,7 +115,7 @@ watch([selectedDriverId, selectedType, criticalOnly], () => loadStock());
 const hydrateLocksForLoadedRows = async () => {
     try {
         const dateKey = localDayKey();
-        const driverIds = [...new Set((stockRows.value || []).map((r) => String(r.driverId)))].filter(Boolean);
+        const driverIds = Array.from(new Set((stockRows.value || []).map((r) => String(r.driverId)))).filter(Boolean);
         if (!driverIds.length) {
             lockedDriverById.value = {};
             return;
@@ -236,6 +236,51 @@ const updateStockQuantity = async (row: any, newQuantity: number) => {
                 severity: 'success',
                 summary: 'Stock updated',
                 detail: `${row.driverName} · ${row.name}: ${newQuantity} ${row.unit}`,
+                life: 3000
+            });
+            await loadStock();
+        }
+    } catch (e: any) {
+        toast.add({
+            severity: 'error',
+            summary: 'Failed',
+            detail: e?.message || 'Update failed',
+            life: 3500
+        });
+    }
+};
+
+const updateStockMaxCapacity = async (row: any, newCapacity: number) => {
+    if (newCapacity == null || newCapacity < 1) return;
+    const prev = Number(row?.maxCapacity ?? 0);
+    const next = Math.max(1, Math.floor(Number(newCapacity) || 0));
+    if (next === prev) return;
+    if (next < Number(row?.currentStock ?? 0)) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Invalid capacity',
+            detail: `${row.name}: max capacity cannot be below current stock (${row.currentStock}).`,
+            life: 3500
+        });
+        return;
+    }
+    if (isLockedDriver(row?.driverId)) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Locked',
+            detail: `${row.driverName}: opening stock is confirmed; max capacity cannot be edited.`,
+            life: 3500
+        });
+        return;
+    }
+    try {
+        const res = await api.drivers.updateStockMaxCapacity(row.driverId, row.productId, next);
+        if (res?.success) {
+            row.maxCapacity = next;
+            toast.add({
+                severity: 'success',
+                summary: 'Capacity updated',
+                detail: `${row.driverName} · ${row.name}: max ${next} ${row.unit}`,
                 life: 3000
             });
             await loadStock();
@@ -441,7 +486,8 @@ onMounted(async () => {
                     @click="initializeMissingIngredients" />
             </div>
             <div class="col-span-12 md:col-span-4 flex items-end justify-end gap-2">
-                <Button label="Refresh" icon="pi pi-sync" outlined :loading="isLoading" @click="loadStock" />
+                <Button label="Refresh" icon="pi pi-sync" loadingIcon="pi pi-spinner animate-spin" outlined
+                    :loading="isLoading" @click="loadStock" />
             </div>
         </div>
 
@@ -458,8 +504,10 @@ onMounted(async () => {
                         </span>
                         <div class="min-w-0">
                             <div class="text-sm text-surface-500">{{ stat.subtitle }}</div>
-                            <div class="text-2xl font-semibold">{{ stat.value }}</div>
-                            <div class="text-sm font-medium text-surface-700 dark:text-surface-300">{{ stat.title }}
+                            <div class="flex items-center gap-2">
+                                <div class="text-2xl font-semibold">{{ stat.value }}</div>
+                                <div class="text-sm font-medium text-surface-700 dark:text-surface-300">{{ stat.title }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -496,25 +544,34 @@ onMounted(async () => {
                 </template>
             </Column>
 
-            <Column header="Quantity" style="min-width: 140px">
+            <Column header="Quantity" style="min-width: 220px">
                 <template #body="{ data }">
-                    <div class="flex items-center gap-2">
-                        <InputNumber :model-value="data.currentStock" :min="0" :max="data.maxCapacity"
-                            :disabled="isLockedDriver(data.driverId)" size="small"
-                            @update:model-value="(v) => updateStockQuantity(data, v ?? 0)" />
-                        <span class="text-sm text-surface-500">{{ data.unit }}</span>
+                    <div class="flex justify-start gap-4">
+                        <div class="flex items-center gap-2">
+                            <div class="inline-flex align-items-center max-w-16">
+                                <InputNumber :model-value="data.currentStock" :min="0" :max="data.maxCapacity"
+                                    class="w-full flex" :disabled="isLockedDriver(data.driverId)" size="small"
+                                    @update:model-value="(v) => updateStockQuantity(data, v ?? 0)" />
+                            </div>
+                            <span class="text-sm text-surface-500">{{ data.unit }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="inline-flex align-items-center max-w-16">
+                                <InputNumber :model-value="data.maxCapacity" :min="1" :useGrouping="false" size="small"
+                                    class="w-full flex" :disabled="isLockedDriver(data.driverId)"
+                                    @update:model-value="(v) => updateStockMaxCapacity(data, v ?? 1)" />
+                            </div>
+                            <span class="text-xs text-surface-500">max</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <ProgressBar :value="getStockPercentage(data)" class="ml-2 w-16"
+                                :severity="getStockSeverity(data)" />
+                        </div>
                     </div>
                 </template>
             </Column>
 
-            <Column header="Capacity" style="min-width: 160px">
-                <template #body="{ data }">
-                    <div class="text-sm font-medium">{{ data.currentStock }} / {{ data.maxCapacity }}</div>
-                    <ProgressBar :value="getStockPercentage(data)" class="mt-1" :severity="getStockSeverity(data)" />
-                </template>
-            </Column>
-
-            <Column header="Actions" style="width: 88px">
+            <Column header="Actions">
                 <template #body="{ data }">
                     <div class="flex items-center gap-1 justify-end">
                         <Button v-if="!isLockedDriver(data.driverId)" icon="pi pi-plus" severity="success" outlined

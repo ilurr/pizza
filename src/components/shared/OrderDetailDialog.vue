@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import api from '@/services/api/index.js';
 import { useToast } from 'primevue/usetoast';
 import { computed, ref, watch } from 'vue';
@@ -111,6 +111,33 @@ const formatDeliveryAddress = (addr) => {
     return JSON.stringify(addr);
 };
 
+const getLatLngFromDeliveryAddress = (addr) => {
+    if (!addr || typeof addr !== 'object') return null;
+    const lat = addr.lat ?? addr.latitude ?? addr.coordinates?.lat;
+    const lng = addr.lng ?? addr.longitude ?? addr.coordinates?.lng;
+    const nLat = Number(lat);
+    const nLng = Number(lng);
+    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return null;
+    return { lat: nLat, lng: nLng };
+};
+
+const googleMapsUrl = computed(() => {
+    const o = props.order;
+    if (!o) return null;
+    const coords = getLatLngFromDeliveryAddress(o.deliveryAddress);
+    if (coords) {
+        return `https://www.google.com/maps?q=${coords.lat},${coords.lng}`;
+    }
+    const addrText = formatDeliveryAddress(o.deliveryAddress);
+    if (!addrText || addrText === '—') return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrText)}`;
+});
+
+const openInGoogleMaps = () => {
+    if (!googleMapsUrl.value) return;
+    window.open(googleMapsUrl.value, '_blank', 'noopener,noreferrer');
+};
+
 const statusSeverity = (s) => {
     const m = {
         pending: 'warn',
@@ -221,9 +248,19 @@ const headerTitle = computed(() => {
                     <p class="text-xs font-semibold uppercase tracking-wide text-surface-500 m-0">Delivery</p>
                     <div
                         class="rounded-xl border border-dashed border-surface-300 dark:border-surface-600 p-4 bg-surface-0 dark:bg-surface-900/20">
-                        <p class="text-sm text-surface-800 dark:text-surface-100 m-0 leading-relaxed">
-                            {{ formatDeliveryAddress(order.deliveryAddress) }}
-                        </p>
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-sm text-surface-800 dark:text-surface-100 m-0 leading-relaxed flex-1">
+                                {{ formatDeliveryAddress(order.deliveryAddress) }}
+                            </p>
+                            <Button
+                                label="Open in Google Maps"
+                                icon="pi pi-map"
+                                severity="secondary"
+                                size="small"
+                                :disabled="!googleMapsUrl"
+                                @click="openInGoogleMaps"
+                            />
+                        </div>
                         <p v-if="order.estimatedDelivery" class="text-xs text-surface-500 m-0 mt-2">
                             <span class="font-medium text-surface-600 dark:text-surface-400">Est. delivery:</span>
                             {{ formatDateTime(order.estimatedDelivery) }}

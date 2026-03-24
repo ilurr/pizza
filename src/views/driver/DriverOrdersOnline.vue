@@ -2,9 +2,10 @@
 import api from '@/services/api/index.js';
 import { useDriverStore } from '@/stores/driverStore.js';
 import { useUserStore } from '@/stores/userStore';
+import OrderDetailDialog from '@/components/shared/OrderDetailDialog.vue';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -16,9 +17,40 @@ const confirm = useConfirm();
 const orders = ref([]);
 const isLoading = ref(false);
 const updatingId = ref(null);
+const gpsInterval = ref(null);
+
+// Order detail dialog (menu/items)
+const orderDialogVisible = ref(false);
+const selectedOrder = ref(null);
 
 const activeOrders = computed(() => orders.value.filter((o) => !['delivered', 'cancelled'].includes(o.status)));
 const completedOrders = computed(() => orders.value.filter((o) => o.status === 'delivered'));
+
+const getDeviceLocation = async () => {
+    try {
+        if (!navigator.geolocation) return null;
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000
+            });
+        });
+        return { lat: position.coords.latitude, lng: position.coords.longitude, source: 'gps' };
+    } catch (e) {
+        return null;
+    }
+};
+
+const upsertDriverLocationForOrder = async (orderId, driverId) => {
+    const loc = await getDeviceLocation();
+    const fallback = driverStore.coverageArea?.center || { lat: -7.2575, lng: 112.7521 };
+    const lat = loc?.lat ?? fallback.lat;
+    const lng = loc?.lng ?? fallback.lng;
+    const source = loc?.source ?? 'fallback';
+
+    await api.orders.upsertOrderDriverLocation(orderId, driverId, { lat, lng }, source);
+};
 
 const fetchOrders = async () => {
     const driverId = userStore.user?.id;
@@ -38,6 +70,30 @@ const fetchOrders = async () => {
 const updateStatus = async (orderId, status) => {
     updatingId.value = orderId;
     try {
+        // If driver is starting "preparing", ensure driver_id/driver_info are persisted first.
+        // Otherwise the order can revert on refresh.
+        if (status === 'preparing') {
+            const driverId = userStore.user?.id;
+            if (driverId != null) {
+                if (!driverStore.driverProfile || String(driverStore.driverProfile.id) !== String(driverId)) {
+                    await driverStore.initializeDriver(driverId);
+                }
+                const d = driverStore.driverProfile;
+                if (d) {
+                    const driverInfo = {
+                        name: d.name,
+                        phone: d.phone,
+                        avatar: d.avatar,
+                        rating: d.rating
+                    };
+                    const assignRes = await api.orders.assignDriver(orderId, driverId, driverInfo);
+                    if (!assignRes?.success) {
+                        throw new Error(assignRes?.error?.message || assignRes?.message || 'Failed to assign driver');
+                    }
+                }
+            }
+        }
+
         const res = await api.orders.updateOrderStatus(orderId, status);
         if (res?.success) {
             toast.add({
@@ -46,6 +102,18 @@ const updateStatus = async (orderId, status) => {
                 detail: `Order is now ${status.replace('_', ' ')}`,
                 life: 3000
             });
+
+            // MVP: immediately upsert GPS for this specific order on preparing/on_delivery.
+            // This is required because you can operate from `/driver/orders/online` without opening `/driver`.
+            const driverId = userStore.user?.id;
+            if (driverId != null && ['preparing', 'on_delivery'].includes(status)) {
+                try {
+                    await upsertDriverLocationForOrder(orderId, String(driverId));
+                } catch (e) {
+                    // Don't block status update if GPS fails.
+                }
+            }
+
             await fetchOrders();
         } else {
             toast.add({
@@ -78,7 +146,8 @@ const getNextAction = (order) => {
 /** Driver can cancel any non-terminal active order (e.g. can’t prepare — out of stock, or customer backs out). */
 const canDriverCancelOrder = (order) => {
     const s = order?.status;
-    return s && !['delivered', 'cancelled'].includes(s);
+    // MVP: once the driver starts preparing, we stop allowing cancellation from this screen.
+    return s && ['pending', 'assigned', 'confirmed'].includes(s);
 };
 
 const confirmCancelOrder = (order) => {
@@ -94,11 +163,22 @@ const confirmCancelOrder = (order) => {
     });
 };
 
+const openOrderDialog = (order) => {
+    selectedOrder.value = order;
+    orderDialogVisible.value = true;
+};
+
+const onOrderDetailUpdated = (updated) => {
+    selectedOrder.value = updated;
+    const idx = orders.value.findIndex((o) => o.id === updated.id);
+    if (idx !== -1) orders.value[idx] = { ...orders.value[idx], ...updated };
+};
+
 const cancelOrderAsDriver = async (orderId) => {
     updatingId.value = orderId;
     try {
-        const result = await driverStore.cancelOrder(orderId);
-        if (result.success) {
+        const res = await api.orders.updateOrderStatus(orderId, 'cancelled', {});
+        if (res?.success) {
             toast.add({
                 severity: 'info',
                 summary: 'Order cancelled',
@@ -110,7 +190,7 @@ const cancelOrderAsDriver = async (orderId) => {
             toast.add({
                 severity: 'error',
                 summary: 'Could not cancel',
-                detail: result.error || 'Try again or contact admin.',
+                detail: res?.error?.message || res?.message || 'Try again or contact admin.',
                 life: 4500
             });
         }
@@ -146,6 +226,26 @@ const goToHistory = () => router.push('/driver/orders');
 
 onMounted(() => {
     fetchOrders();
+
+    // Minimal periodic GPS updates while this page is open.
+    // Every 5 minutes: upsert for all active orders in preparing/on_delivery.
+    gpsInterval.value = setInterval(async () => {
+        const driverId = userStore.user?.id;
+        if (!driverId) return;
+        const targets = orders.value.filter((o) => ['preparing', 'on_delivery'].includes(o.status)).map((o) => o.id);
+        if (!targets.length) return;
+        await Promise.all(
+            targets.map((oid) =>
+                upsertDriverLocationForOrder(oid, String(driverId)).catch(() => {
+                    // Ignore GPS/insert failures
+                })
+            )
+        );
+    }, 5 * 60 * 1000);
+});
+
+onUnmounted(() => {
+    if (gpsInterval.value) clearInterval(gpsInterval.value);
 });
 </script>
 
@@ -201,12 +301,29 @@ onMounted(() => {
                                 :severity="order.status === 'on_delivery' ? 'success' : 'primary'"
                                 class="flex-1 min-w-[8rem]"
                                 @click="updateStatus(order.id, getNextAction(order).status)" />
-                            <Button v-if="canDriverCancelOrder(order)" label="Cancel order" icon="pi pi-times-circle"
-                                size="small" severity="danger" outlined class="flex-1 min-w-[8rem]"
+                            <Button
+                                v-if="canDriverCancelOrder(order)"
+                                label="Cancel order"
+                                icon="pi pi-times-circle"
+                                size="small"
+                                severity="danger"
+                                outlined
+                                class="flex-1 min-w-[8rem]"
                                 :loading="updatingId === order.id && driverStore.isProcessingOrder"
                                 :disabled="updatingId !== null || driverStore.isProcessingOrder"
                                 v-tooltip.top="'Cancel if you cannot process this order'"
-                                @click="confirmCancelOrder(order)" />
+                                @click="confirmCancelOrder(order)"
+                            />
+                            <Button
+                                v-else
+                                label="View detail"
+                                icon="pi pi-eye"
+                                size="small"
+                                severity="secondary"
+                                outlined
+                                class="flex-1 min-w-[8rem]"
+                                @click="openOrderDialog(order)"
+                            />
                         </div>
                     </div>
                 </div>
@@ -235,4 +352,10 @@ onMounted(() => {
             </div>
         </template>
     </div>
+
+    <OrderDetailDialog
+        v-model="orderDialogVisible"
+        :order="selectedOrder"
+        @order-updated="onOrderDetailUpdated"
+    />
 </template>
